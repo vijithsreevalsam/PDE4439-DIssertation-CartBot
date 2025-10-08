@@ -55,7 +55,7 @@ The system bridges the gap between complex robotics systems and user-friendly in
 
 ---
 
-The rewritten markdown content that would fit at $SELECTION_PLACEHOLDER$ wrapped with -+-+-+-+-+ is:
+
 
 *Project: cartBot - Robot Control Web Interface*
 
