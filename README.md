@@ -143,7 +143,7 @@ All diagrams below are based on Teensy 4.0 microcontroller and GY85 IMU. Click t
 Reference designs you can follow in building your robot.
 
 A minimal setup with a 5V powered robot computer.
-![minimal_setup](docs/flowchart001.jpg)
+![minimal_setup](docs/flowchart001.jpeg)
 
 
 ## Setting up the firmware
