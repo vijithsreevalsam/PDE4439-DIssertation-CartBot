@@ -250,8 +250,8 @@ PDE4439-DIssertation-CartBot/
 ~/websocket_ws/                        # Web Interface
 ├── 📄 robot_control.html              # Main web interface
 ├── 📄 service_manager.py              # Backend service
-├── 📄 map_viewer.html                 # Map visualization
-└── 📄 supermarket_viewer.html         # Product navigation
+├── 📄 map_viewer.html                 # Map visualization -test file
+└── 📄 supermarket_viewer.html         # Product navigation -Test file
 
 ```
 
