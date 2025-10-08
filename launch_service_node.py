@@ -727,7 +727,7 @@ class LaunchServiceNode(Node):
                 os.chdir('/home/viju/ros_ws')  # Change to ROS workspace directory
                 
                 # Launch robot bringup
-                cmd = ['bash', '-c', 'source ~/.bashrc && source install/setup.bash && ros2 launch linorobot2_bringup bringup.launch.py magwick:=false orientation_stddev:=0.01']
+                cmd = ['bash', '-c', 'source ~/.bashrc && source install/setup.bash && ros2 launch cartBot_bringup bringup.launch.py magwick:=false orientation_stddev:=0.01']
                 process = self.launch_with_streaming(cmd, 'Robot')
                 
                 self.processes['robot'] = process
@@ -759,7 +759,7 @@ class LaunchServiceNode(Node):
         if request.data:  # Launch SLAM
             try:
                 # Change to ROS workspace directory
-                os.chdir('/home/viju/linorobot2_ws')
+                os.chdir('/home/viju/cartBot')
                 
                 # Source ROS setup and launch SLAM
                 cmd = ['bash', '-c', 'source ~/.bashrc && source install/setup.bash && ros2 launch slam_toolbox online_async_launch.py']
