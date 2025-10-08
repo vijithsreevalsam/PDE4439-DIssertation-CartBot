@@ -1,7 +1,7 @@
-#this readme for the cartBot, package is forked from Linorobot hardware. 
-# changes has been made according to carBot 
 
-# linorobot2_hardware for ESP32 and Pico
+# changes has been made according to carBot 
+# this readme for the cartBot, package is forked from Linorobot hardware. 
+
 
 ## Overview
 The linorobot2_hardware repo uses platformio to build microcontroller firmware for mobile robots based on micro-ROS.
