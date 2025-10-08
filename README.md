@@ -1,11 +1,5 @@
-## Build status
-<!-- Build Status populated by Github Actions runs -->
-ROS 2 Distro | Branch | Build status
-:----------: | :----: | :----------:
-**Rolling** | [`rolling`](../../tree/rolling) | [![Rolling Firmware Build](../../actions/workflows/rolling-firmware-build.yml/badge.svg?branch=rolling)](../../actions/workflows/rolling-firmware-build.yml?branch=rolling)
-**Humble** | [`humble`](../../tree/humble) | [![Humble Firmware Build](../../actions/workflows/humble-firmware-build.yml/badge.svg?branch=humble)](../../actions/workflows/humble-firmware-build.yml?branch=humble)
-**Galactic** | [`galactic`](../../tree/galactic) | [![Galactic Firmware Build](../../actions/workflows/galactic-firmware-build.yml/badge.svg?branch=galactic)](../../actions/workflows/galactic-firmware-build.yml?branch=galactic)
-**Foxy** | [`foxy`](../../tree/foxy) | [![Foxy Firmware Build](../../actions/workflows/foxy-firmware-build.yml/badge.svg?branch=foxy)](../../actions/workflows/foxy-firmware-build.yml?branch=foxy)
+#this readme for the cartBot, package is forked from Linorobot hardware. 
+# changes has been made according to carBot 
 
 # linorobot2_hardware for ESP32 and Pico
 
@@ -109,7 +103,6 @@ If you're building a 2 wheel drive robot, assign `MOTOR1` and `MOTOR2` to the le
 
 For mecanum robots, follow the wheels' orientation below.
 
-![mecanum_wheels_orientation](docs/mecanum_wheels_orientation.png)
 
 ### 2. Motor Drivers
 
@@ -117,31 +110,18 @@ Supported Motor Drivers:
 
 - **GENERIC_2_IN_MOTOR_DRIVER** - Motor drivers that have EN (pwm) pin, and 2 direction pins (usually DIRA, DIRB pins). Example: L298 Breakout boards.
 
-- **GENERIC_1_IN_MOTOR_DRIVER** - Motor drivers that have EN (pwm) pin, and 1 direction pin (usual DIR pin). These drivers usually have logic gates included to lessen the pins required in controlling the driver. Example: Pololu MC33926 Motor Driver Shield.
 
-- **BTS7960_MOTOR_DRIVER** - BTS7960 motor driver.
 
-- **ESC_MOTOR_DRIVER** - Bi-directional (forward/reverse) electronic speed controllers.
 
-The motor drivers are configurable from the config file explained in the later part of this document.
+
 
 ### 3. Inertial Measurement Unit (IMU)
 
-Supported IMUs:
 
-- **GY-85**
-- **MPU6050**
-- **MPU9150**
+
+-Used MPU here is :
 - **MPU9250**
-- **QMI8658**
 
-Supported MAGs:
-
-- **HMC5883L**
-- **AK8963**
-- **AK8975**
-- **AK09918**
-- **QMC5883L**
 
 ### 4. Teensy Connection Diagram
 Below are connection diagrams you can follow for each supported motor driver and IMU. For simplicity, only one motor connection is provided but the same diagram can be used to connect the rest of the motors. You are free to decide which microcontroller pin to use just ensure that the following are met:
@@ -156,36 +136,15 @@ All diagrams below are based on Teensy 4.0 microcontroller and GY85 IMU. Click t
 
 #### 4.1 GENERIC 2 IN
 
-![generic_2_in_connection](docs/generic_2_in_connection.png)
+![generic_2_in_connection](docs/circuit.jpg)
 
-#### 4.2 GENERIC 1 IN
-
-![generic_1_in_connection](docs/generic_1_in_connection.png)
-
-#### 4.3 BTS7960
-
-![bts7960_connection](docs/bts7960_connection.png)
-
-#### 4.4 IMU
-
-![imu_connection](docs/imu_connection.png)
-
-Take note of the IMU's correct orientation when mounted on the robot. Ensure that the IMU's axes are facing the correct direction:
-
-- **X** - Front
-- **Y** - Left
-- **Z** - Up
 
 #### 4.5 System Diagram
 Reference designs you can follow in building your robot.
 
 A minimal setup with a 5V powered robot computer.
-![minimal_setup](docs/minimal_setup.png)
+![minimal_setup](docs/flowchart001.jpg)
 
-A more advanced setup with a 19V powered computer and USB hub connected to sensors.
-![advanced_setup](docs/advanced_setup.png)
-
-For bigger robots, you can add an emergency switch in between the motor drivers' power supply and motor drivers.
 
 ## Setting up the firmware
 ### 1. Robot Settings
@@ -193,7 +152,7 @@ Go to the config folder and open lino_base_config.h. Uncomment the base, motor d
 
     #define LINO_BASE DIFFERENTIAL_DRIVE
     #define USE_GENERIC_2_IN_MOTOR_DRIVER
-    #define USE_GY85_IMU
+   
 
 Constants' Meaning:
 
@@ -207,11 +166,7 @@ Constants' Meaning:
 *MOTOR DRIVERS*
 - **USE_GENERIC_2_IN_MOTOR_DRIVER** - Motor drivers that have EN (pwm) pin, and 2 direction pins (usually DIRA, DIRB pins).
 
-- **USE_GENERIC_1_IN_MOTOR_DRIVER** - Motor drivers that have EN (pwm) pin, and 1 direction pin (usual DIR pin). These drivers usually have logic gates included to lessen the pins required in controlling the driver.
 
-- **USE_BTS7960_MOTOR_DRIVER** - BTS7960 motor driver.
-
-- **USE_ESC_MOTOR_DRIVER** - Bi-directional (forward/reverse) electronic speed controllers.
 
 *INERTIAL MEASUREMENT UNIT (IMU)*
 - **USE_GY85_IMU** - GY-85 IMUs.
@@ -256,26 +211,55 @@ Set the MAG_BIAS to these values in robot configuration file.
 
 Next, fill in the robot settings accordingly:
 
-    #define K_P 0.6
-    #define K_I 0.8
-    #define K_D 0.5
+    #define LINO_BASE DIFFERENTIAL_DRIVE       // 2WD and Tracked robot w/ 2 motors
+// #define LINO_BASE SKID_STEER            // 4WD robot
+// #define LINO_BASE MECANUM               // Mecanum drive robot
 
-    #define MOTOR_MAX_RPM 100             
-    #define MAX_RPM_RATIO 0.85          
-    #define MOTOR_OPERATING_VOLTAGE 24
-    #define MOTOR_POWER_MAX_VOLTAGE 12
-    #define MOTOR_POWER_MEASURED_VOLTAGE 11.7
+//uncomment the motor driver you're using
+#define USE_GENERIC_2_IN_MOTOR_DRIVER      // Motor drivers with 2 Direction Pins(INA, INB) and 1 PWM(ENABLE) pin ie. L298, L293, VNH5019
+// #define USE_GENERIC_1_IN_MOTOR_DRIVER   // Motor drivers with 1 Direction Pin(INA) and 1 PWM(ENABLE) pin.
+// #define USE_BTS7960_MOTOR_DRIVER        // BTS7970 Motor Driver
+// #define USE_ESC_MOTOR_DRIVER            // Motor ESC for brushless motors
 
-    #define COUNTS_PER_REV1 2200    
-    #define COUNTS_PER_REV2 2200      
-    #define COUNTS_PER_REV3 2200      
-    #define COUNTS_PER_REV4 2200      
-  
-    #define WHEEL_DIAMETER 0.09  
-    #define LR_WHEELS_DISTANCE 0.2  
 
-    #define PWM_BITS 10
-    #define PWM_FREQUENCY 20000
+#define USE_MPU9250_IMU  // with AK8963 magnetometer, MPU9250 is used in cartBot
+
+#define USE_AK8963_MAG // with MPU9250 
+
+#define MAG_BIAS { 3.13822e-07, 1.35003e-05, -2.07811e-06} //run magnetometer calibration .- calibrated for cartBot
+
+#define K_P 0.188     //left motor          // P constant
+#define K_I 0.4                             // I constant
+#define K_D 0.7                             // D constant
+
+//tuning parameters for motor 2 - for CarBot- orginal files has only single set of PID values for both motors
+#define K_P_m2 0.176              //right  motor // P constant
+#define K_I_m2 0.375                             // I constant
+#define K_D_m2 0.656                             // D constant
+
+/*
+ROBOT ORIENTATION
+         FRONT
+    MOTOR1  MOTOR2  (2WD/ACKERMANN)
+    MOTOR3  MOTOR4  (4WD/MECANUM)  ,,,,,,,,,,,,,,,,,,,,,,,
+         BACK
+*/
+//all parameters are Tuned for CartBot robot - autonomous cart trolly
+
+//define your robot' specs here
+#define MOTOR_MAX_RPM 200                   // motor's max RPM          
+#define MAX_RPM_RATIO 0.75                 // max RPM allowed for each MAX_RPM_ALLOWED = MOTOR_MAX_RPM * MAX_RPM_RATIO          
+#define MOTOR_OPERATING_VOLTAGE 8           // motor's operating voltage (used to calculate max RPM)
+#define MOTOR_POWER_MAX_VOLTAGE 8           // max voltage of the motor's power source (used to calculate max RPM)
+#define MOTOR_POWER_MEASURED_VOLTAGE 8.15     // current voltage reading of the power connected to the motor (used for calibration)
+#define COUNTS_PER_REV1 1330               // wheel1 encoder's no of ticks per rev
+#define COUNTS_PER_REV2 1418              // wheel2 encoder's no of ticks per rev
+#define COUNTS_PER_REV3 144000              // wheel3 encoder's no of ticks per rev
+#define COUNTS_PER_REV4 144000              // wheel4 encoder's no of ticks per rev
+#define WHEEL_DIAMETER 0.066              // wheel's diameter in meters
+#define LR_WHEELS_DISTANCE 0.180            // distance between left and right wheels
+#define PWM_BITS 10                          // PWM Resolution of the microcontroller
+#define PWM_FREQUENCY 20000                 // PWM Frequency
 
 Constants' Meaning:
 
@@ -335,9 +319,9 @@ The pin assignments found in lino_base_config.h are based on Linorobot's PCB boa
 
     // MOTOR PINS
     #ifdef USE_GENERIC_2_IN_MOTOR_DRIVER
-        #define MOTOR1_PWM 21 //Pin no 21 is not a PWM pin on Teensy 4.x, you can swap it with pin no 1 instead.
+        #define MOTOR1_PWM 1 
         #define MOTOR1_IN_A 20
-        #define MOTOR1_IN_B 1 
+        #define MOTOR1_IN_B 21 
 
         #define MOTOR2_PWM 5
         #define MOTOR2_IN_A 6
