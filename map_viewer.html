@@ -1,0 +1,3700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS Web Map Viewer</title>
+    
+    <!-- ROS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Nipple.js for joystick -->
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.2/dist/nipplejs.min.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .connection-panel {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .connection-panel input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .connection-panel button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .connection-panel button:hover {
+            background-color: #45a049;
+        }
+        
+        .status {
+            font-size: 14px;
+        }
+        
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #ddd;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Crisp map rendering */
+        .crisp-map {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        /* Custom zoom control styling */
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        }
+        
+        .leaflet-control-zoom a {
+            background-color: #fff !important;
+            color: #333 !important;
+            font-weight: bold !important;
+            border-bottom: 1px solid #ddd !important;
+        }
+        
+        .leaflet-control-zoom a:hover {
+            background-color: #f5f5f5 !important;
+        }
+        
+        .control-panel {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .control-panel h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .robot-info {
+            margin-bottom: 10px;
+        }
+        
+        .robot-info span {
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .waypoint-controls button {
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .nav-button {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .nav-button:hover {
+            background-color: #0056b3;
+        }
+        
+        .stop-button {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .stop-button:hover {
+            background-color: #c82333;
+        }
+        
+        .clear-button {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .clear-button:hover {
+            background-color: #545b62;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .waypoint-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: white;
+        }
+        
+        .waypoint-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .waypoint-item:last-child {
+            border-bottom: none;
+        }
+        
+        .delete-waypoint {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .emergency-stop {
+            background-color: #dc3545 !important;
+            color: white !important;
+            border: 3px solid #fff !important;
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3) !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            text-transform: uppercase !important;
+            animation: pulse 2s infinite !important;
+        }
+        
+        .emergency-stop:hover {
+            background-color: #c82333 !important;
+            transform: scale(1.05) !important;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(220, 53, 69, 0.6); }
+            100% { box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3); }
+        }
+        
+        .waypoint-mode-controls {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .waypoint-mode-controls button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .mode-active {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .mode-inactive {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .launch-button {
+            background-color: #17a2b8;
+            color: white;
+            width: 100%;
+            margin: 3px 0;
+            padding: 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .launch-button:hover {
+            background-color: #138496;
+        }
+        
+        .launch-button.active {
+            background-color: #28a745;
+        }
+        
+        .launch-button.active:hover {
+            background-color: #218838;
+        }
+        
+        .launch-status {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 2px;
+            margin-top: 3px;
+        }
+        
+        .status-running {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-unknown {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        /* Joystick Styles */
+        .joystick-container {
+            width: 200px;
+            height: 200px;
+            margin: 10px auto;
+            position: relative;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%);
+        }
+        
+        .joystick-info {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        .joystick-info div {
+            margin: 2px 0;
+            padding: 2px 5px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        
+        .velocity-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .velocity-item {
+            text-align: center;
+            padding: 5px;
+            background: #e9ecef;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .position-display {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        /* Supermarket Item Search Styles */
+        .item-search-container {
+            margin-top: 10px;
+        }
+        
+        .item-search-input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        
+        .item-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .item-entry {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .item-entry:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .item-entry.selected {
+            background-color: #e3f2fd;
+        }
+        
+        .item-name {
+            flex-grow: 1;
+        }
+        
+        .item-section {
+            color: #666;
+            font-size: 11px;
+            margin-right: 5px;
+        }
+        
+        .selected-items-container {
+            margin-bottom: 10px;
+        }
+        
+        .selected-items-list {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .selected-item {
+            padding: 6px 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .remove-item {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .item-admin-panel {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .admin-toggle {
+            font-size: 12px;
+            color: #007bff;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .admin-toggle:hover {
+            text-decoration: underline;
+        }
+        
+        .item-form {
+            display: none;
+            margin-top: 10px;
+        }
+        
+        .item-form input {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        
+        .coordinate-inputs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 8px;
+        }
+        
+        .coordinate-inputs input {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ROS Web Map Viewer</h1>
+        <div class="connection-panel">
+            <input type="text" id="rosbridge-address" value="ws://192.168.0.168:9090" placeholder="ROS Bridge URL">
+            <button id="ros-connect-btn" onclick="toggleROSConnection()">
+                <span id="ros-connect-text">🔌 Connect to ROS</span>
+            </button>
+            <div class="status" id="connection-status">Disconnected</div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <!-- Robot Position -->
+            <div class="control-panel">
+                <h3>Robot Status</h3>
+                <div class="robot-info">
+                    Position: <span id="robot-x">0.000</span>, <span id="robot-y">0.000</span>
+                </div>
+                <div class="robot-info">
+                    Orientation: <span id="robot-theta">0.0</span>°
+                </div>
+                <div class="robot-info">
+                    Status: <span id="robot-status">Idle</span>
+                </div>
+                
+                <!-- Velocity Monitor -->
+                <div class="robot-info" style="margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 3px;">
+                    <strong>Current Velocity:</strong><br>
+                    <div style="font-size: 12px;">
+                        Linear: <span id="vel-linear">0.000</span> m/s<br>
+                        Angular: <span id="vel-angular">0.000</span> rad/s
+                    </div>
+                    <div id="vel-status" style="font-size: 11px; color: #666;">Monitoring...</div>
+                </div>
+            </div>
+            
+            <!-- Map Controls -->
+            <div class="control-panel">
+                <h3>Map Controls</h3>
+                <button class="nav-button" onclick="toggleMapSubscription()">
+                    <span id="map-sub-text">Subscribe to Map</span>
+                </button>
+                <button class="clear-button" onclick="clearMap()">Clear Map</button>
+                <button class="nav-button" onclick="zoomToRobot()">Zoom to Robot</button>
+                <button class="nav-button" onclick="fitMapView()">Fit Map View</button>
+                
+                <!-- Map Info Display -->
+                <div id="map-info" style="margin-top: 10px; font-size: 12px; color: #666; background: #f9f9f9; padding: 8px; border-radius: 3px; display: none;">
+                    <div><strong>Map Info:</strong></div>
+                    <div>Size: <span id="map-size">-</span></div>
+                    <div>Resolution: <span id="map-resolution">-</span></div>
+                    <div>Updates: <span id="map-updates">0</span></div>
+                    <div>Resizes: <span id="map-resizes">0</span></div>
+                    <div>Status: <span id="map-status">-</span></div>
+                </div>
+                
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" id="show-robot" checked> Show Robot
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="show-path" checked> Show Path
+                    </label>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="map-opacity">Map Opacity: </label>
+                    <input type="range" id="map-opacity" min="0.3" max="1" step="0.1" value="0.9" onchange="updateMapOpacity(this.value)">
+                    <span id="opacity-value">90%</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="color-scheme">Color Scheme: </label>
+                    <select id="color-scheme" onchange="updateColorScheme(this.value)">
+                        <option value="test">TEST (Bright Colors)</option>
+                        <option value="rviz">RViz Style</option>
+                        <option value="thermal" selected>Thermal (Colorful)</option>
+                        <option value="rainbow">Rainbow (Very Colorful)</option>
+                        <option value="classic">Classic B&W</option>
+                        <option value="blue">Blue Theme</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Laser Scan Controls -->
+            <div class="control-panel">
+                <h3>Laser Scan</h3>
+                <button class="nav-button" onclick="toggleLaserSubscription()">
+                    <span id="laser-sub-text">Subscribe to Laser</span>
+                </button>
+                <button class="clear-button" onclick="clearLaser()">Clear Laser</button>
+                <div style="margin-top: 10px;">
+                    <label>
+                        <input type="checkbox" id="show-laser" checked> Show Laser Scan
+                    </label>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="laser-topic">Laser Topic: </label>
+                    <input type="text" id="laser-topic" value="/scan" style="width: 120px;">
+                </div>
+                <div style="margin-top: 10px;">
+                    <label for="laser-color">Laser Color: </label>
+                    <select id="laser-color" onchange="updateLaserColor(this.value)">
+                        <option value="rainbow">Rainbow</option>
+                        <option value="red">Red</option>
+                        <option value="green">Green</option>
+                        <option value="blue">Blue</option>
+                        <option value="yellow">Yellow</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Navigation Controls -->
+            <div class="control-panel">
+                <h3>Navigation</h3>
+                
+                <!-- Emergency Stop Button -->
+                <button class="emergency-stop" onclick="emergencyStop()">
+                    🛑 EMERGENCY STOP
+                </button>
+                
+                <!-- Waypoint Mode Controls -->
+                <div class="waypoint-mode-controls">
+                    <button id="single-goal-btn" class="mode-active" onclick="setWaypointMode('single')">
+                        Single Goal
+                    </button>
+                    <button id="multi-waypoint-btn" class="mode-inactive" onclick="setWaypointMode('multi')">
+                        Multi Waypoints
+                    </button>
+                </div>
+                
+                <button class="nav-button" onclick="setNavigationMode()">
+                    <span id="nav-mode-text">Click to Set Goal</span>
+                </button>
+                <button class="stop-button" onclick="cancelNavigation()">Cancel Navigation</button>
+                <button class="clear-button" onclick="clearWaypoints()">Clear Waypoints</button>
+                
+                <!-- Waypoint Sequence Controls -->
+                <div id="waypoint-sequence-controls" style="display: none; margin-top: 10px;">
+                    <button class="nav-button" onclick="executeWaypointSequence()">
+                        Execute Waypoint Sequence
+                    </button>
+                    <button class="clear-button" onclick="pauseWaypointSequence()">
+                        Pause Sequence
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ROS Launch Controls -->
+            <div class="control-panel">
+                <h3>ROS System Launch</h3>
+                
+                <!-- System Services -->
+                <div style="margin-bottom: 15px; border: 2px solid #007bff; border-radius: 5px; padding: 10px; background: #f8f9ff;">
+                    <h4 style="margin: 0 0 8px 0; color: #007bff;">🔧 System Services</h4>
+                    <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
+                        Core services required for robot operation
+                    </div>
+                    
+                    <button id="launch-service-btn" class="nav-button" onclick="toggleLaunchService()" style="margin-bottom: 5px;">
+                        <span id="launch-service-text">🚀 Start Launch Service</span>
+                    </button>
+                    <div id="launch-service-status" style="font-size: 12px; margin-bottom: 8px; color: #666;">
+                        Status: <span id="launch-service-status-text">Not Running</span>
+                    </div>
+                    
+                    <button id="rosbridge-service-btn" class="nav-button" onclick="toggleRosbridgeService()">
+                        <span id="rosbridge-service-text">🌐 Start Rosbridge</span>
+                    </button>
+                    <div id="rosbridge-service-status" style="font-size: 12px; color: #666;">
+                        Status: <span id="rosbridge-service-status-text">Checking...</span>
+                    </div>
+                </div>
+                
+                <!-- SLAM Controls -->
+                <div style="margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 8px 0; color: #333;">SLAM Mapping</h4>
+                    <button id="slam-btn" class="nav-button" onclick="toggleSLAM()">
+                        <span id="slam-text">🗺️ Launch SLAM</span>
+                    </button>
+                    <div id="slam-status" style="font-size: 12px; margin-top: 5px; color: #666;">
+                        Status: <span id="slam-status-text">Not Running</span>
+                    </div>
+                    <div id="slam-details" style="font-size: 10px; margin-top: 3px; color: #888; display: none;">
+                        <div>Nodes: <span id="slam-nodes">-</span></div>
+                        <div>Topics: <span id="slam-topics">-</span></div>
+                    </div>
+                </div>
+                
+                <!-- Navigation Controls -->
+                <div style="margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 8px 0; color: #333;">Navigation Stack</h4>
+                    <button id="nav-launch-btn" class="nav-button" onclick="toggleNavigation()">
+                        <span id="nav-launch-text">🧭 Launch Navigation</span>
+                    </button>
+                    <div id="nav-launch-status" style="font-size: 12px; margin-top: 5px; color: #666;">
+                        Status: <span id="nav-launch-status-text">Not Running</span>
+                    </div>
+                    <div id="nav-details" style="font-size: 10px; margin-top: 3px; color: #888; display: none;">
+                        <div>Nodes: <span id="nav-nodes">-</span></div>
+                        <div>Topics: <span id="nav-topics">-</span></div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 15px;">
+                    <h4 style="margin: 0 0 8px 0; color: #333;">Quick Actions</h4>
+                    <button class="clear-button" onclick="killAllLaunches()">
+                        🛑 Kill All Launches
+                    </button>
+                    <button class="nav-button" onclick="refreshLaunchStatus()" style="margin-top: 5px;">
+                        🔄 Refresh Status
+                    </button>
+                    <button class="nav-button" onclick="showSystemInfo()" style="margin-top: 5px;">
+                        ℹ️ Show System Info
+                    </button>
+                    <button class="clear-button" onclick="forceResetStatus()" style="margin-top: 5px;">
+                        🔧 Force Reset Status
+                    </button>
+                </div>
+                
+                <!-- System Info Display -->
+                <div id="system-info" style="display: none; margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 3px; font-size: 11px;">
+                    <h5 style="margin: 0 0 5px 0;">ROS System Status:</h5>
+                    <div>Nodes: <span id="node-count">-</span></div>
+                    <div>Topics: <span id="topic-count">-</span></div>
+                    <div>Services: <span id="service-count">-</span></div>
+                    <div style="margin-top: 5px; max-height: 100px; overflow-y: auto; font-size: 10px;">
+                        <strong>Active Nodes:</strong>
+                        <div id="active-nodes">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Supermarket Item Search Panel -->
+            <div class="control-panel">
+                <h3>Supermarket Item Finder</h3>
+                <div class="item-search-container">
+                    <input type="text" id="item-search" class="item-search-input" placeholder="Search for items (e.g., salt, sugar)">
+                    
+                    <div class="item-list" id="item-list">
+                        <!-- Items will be populated here -->
+                        <div class="item-entry">Loading items...</div>
+                    </div>
+                </div>
+                
+                <div class="selected-items-container">
+                    <h4 style="margin: 10px 0 5px 0;">Selected Items</h4>
+                    <div class="selected-items-list" id="selected-items-list">
+                        <div class="selected-item" style="color: #666; font-style: italic;">No items selected</div>
+                    </div>
+                    
+                    <button class="nav-button" id="navigate-to-items-btn" onclick="navigateToSelectedItems()">
+                        🧭 Navigate to Selected Items
+                    </button>
+                    <button class="clear-button" onclick="clearSelectedItems()">
+                        Clear Selected Items
+                    </button>
+                </div>
+                
+                <div class="item-admin-panel">
+                    <span class="admin-toggle" onclick="toggleItemAdmin()">+ Item Management (Admin)</span>
+                    
+                    <div id="item-admin-form" class="item-form">
+                        <h4 style="margin: 5px 0;">Add/Edit Item</h4>
+                        <input type="text" id="item-name" placeholder="Item Name (e.g., Salt)">
+                        <input type="text" id="item-section" placeholder="Section (e.g., Spices, Dairy)">
+                        <div class="coordinate-inputs">
+                            <input type="number" id="item-x" placeholder="X Coordinate" step="0.01">
+                            <input type="number" id="item-y" placeholder="Y Coordinate" step="0.01">
+                        </div>
+                        <button class="nav-button" onclick="saveItem()">Save Item</button>
+                        <button class="clear-button" onclick="deleteItem()">Delete Item</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Waypoint List -->
+            <div class="control-panel">
+                <h3>Waypoints (<span id="waypoint-count">0</span>)</h3>
+                <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                    Mode: <span id="current-waypoint-mode">Single Goal</span>
+                </div>
+                <div class="waypoint-list" id="waypoint-list">
+                    <div style="padding: 20px; text-align: center; color: #666;">
+                        No waypoints set
+                    </div>
+                </div>
+                
+                <!-- Waypoint Statistics -->
+                <div id="waypoint-stats" style="display: none; margin-top: 10px; font-size: 12px; color: #666;">
+                    <div>Current: <span id="current-waypoint-index">-</span> / <span id="total-waypoints">0</span></div>
+                    <div>Status: <span id="waypoint-sequence-status">Idle</span></div>
+                </div>
+            </div>
+            
+            <!-- Joystick Control Panel -->
+            <div class="control-panel">
+                <h3>Robot Control</h3>
+                
+                <!-- Joystick Container -->
+                <div id="joystick" class="joystick-container"></div>
+                
+                <!-- Joystick Information -->
+                <div class="joystick-info">
+                    <div><strong>Position:</strong> <span id="joystick-position">Center</span></div>
+                    <div><strong>Distance:</strong> <span id="joystick-distance">0</span></div>
+                    <div><strong>Angle:</strong> <span id="joystick-angle">0°</span></div>
+                </div>
+                
+                <!-- Velocity Display -->
+                <div class="velocity-display">
+                    <div class="velocity-item">
+                        <div><strong>Linear</strong></div>
+                        <div id="linear-velocity">0.00 m/s</div>
+                    </div>
+                    <div class="velocity-item">
+                        <div><strong>Angular</strong></div>
+                        <div id="angular-velocity">0.00 rad/s</div>
+                    </div>
+                </div>
+                
+                <!-- Robot Position Display -->
+                <div class="position-display">
+                    <div><strong>Robot Position:</strong></div>
+                    <div>X: <span id="joystick-robot-x">-</span> m</div>
+                    <div>Y: <span id="joystick-robot-y">-</span> m</div>
+                    <div>θ: <span id="joystick-robot-theta">-</span>°</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <div>Click on map to set waypoint</div>
+                <div style="font-size: 12px; color: #666;">Map coordinates will be shown here</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Library Loading Verification
+        console.log('=== Library Loading Check ===');
+        console.log('ROSLIB loaded:', typeof ROSLIB !== 'undefined');
+        console.log('Leaflet loaded:', typeof L !== 'undefined');
+        console.log('nipplejs loaded:', typeof nipplejs !== 'undefined');
+        console.log('=============================');
+        
+        // Global variables
+        let ros;
+        let map;
+        let robotMarker;
+        let mapData = null;
+        let waypoints = [];
+        let navigationMode = false;
+        let mapSubscribed = false;
+        let laserSubscribed = false;
+        let pathPolyline;
+        let mapTopic, odomTopic, goalPublisher, laserTopic, cancelGoalPublisher;
+        let currentColorScheme = 'thermal';
+        let laserPoints = [];
+        let laserLayer;
+        let lastOdomMessage = null;
+        let lastLaserMessage = null;
+        let mapUpdateCount = 0;
+        let mapResizeCount = 0;
+        
+        // Supermarket items variables
+        let supermarketItems = [];
+        let selectedItems = [];
+        let itemMarkers = [];
+        let currentItemIndex = -1;
+        let isNavigatingItems = false;
+        
+        // Joystick variables
+        let joystick;
+        let odomSubscriber;
+        
+        // System service process tracking
+        let launchServiceProcess = null;
+        let rosbridgeProcess = null;
+        let manuallyDisconnected = false;
+
+        // System service management
+        async function toggleLaunchService() {
+            const btn = document.getElementById('launch-service-btn');
+            const text = document.getElementById('launch-service-text');
+            const statusText = document.getElementById('launch-service-status-text');
+            
+            if (launchServiceProcess === null) {
+                // Start launch service
+                text.textContent = '⏳ Starting...';
+                btn.disabled = true;
+                statusText.textContent = 'Starting...';
+                
+                try {
+                    const response = await fetch('/start_launch_service', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        launchServiceProcess = result.pid;
+                        text.textContent = '🛑 Stop Launch Service';
+                        statusText.textContent = `Running (PID: ${result.pid})`;
+                        btn.style.backgroundColor = '#dc3545';
+                    } else {
+                        text.textContent = '🚀 Start Launch Service';
+                        statusText.textContent = `Error: ${result.error}`;
+                        btn.style.backgroundColor = '#28a745';
+                    }
+                } catch (error) {
+                    text.textContent = '🚀 Start Launch Service';
+                    statusText.textContent = `Error: ${error.message}`;
+                    btn.style.backgroundColor = '#28a745';
+                }
+                btn.disabled = false;
+            } else {
+                // Stop launch service
+                text.textContent = '⏳ Stopping...';
+                btn.disabled = true;
+                statusText.textContent = 'Stopping...';
+                
+                try {
+                    const response = await fetch('/stop_launch_service', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    launchServiceProcess = null;
+                    text.textContent = '🚀 Start Launch Service';
+                    statusText.textContent = 'Not Running';
+                    btn.style.backgroundColor = '#28a745';
+                } catch (error) {
+                    statusText.textContent = `Error stopping: ${error.message}`;
+                }
+                btn.disabled = false;
+            }
+        }
+
+        async function toggleRosbridgeService() {
+            const btn = document.getElementById('rosbridge-service-btn');
+            const text = document.getElementById('rosbridge-service-text');
+            const statusText = document.getElementById('rosbridge-service-status-text');
+            
+            if (rosbridgeProcess === null) {
+                // Start rosbridge
+                text.textContent = '⏳ Starting...';
+                btn.disabled = true;
+                statusText.textContent = 'Starting...';
+                
+                try {
+                    const response = await fetch('/start_rosbridge', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        rosbridgeProcess = result.pid;
+                        text.textContent = '🛑 Stop Rosbridge';
+                        statusText.textContent = `Running (PID: ${result.pid})`;
+                        btn.style.backgroundColor = '#dc3545';
+                        
+                        // Auto-connect to ROS after rosbridge starts (only if not manually disconnected)
+                        if (!manuallyDisconnected) {
+                            setTimeout(connectToROS, 2000);
+                        }
+                    } else {
+                        text.textContent = '🌐 Start Rosbridge';
+                        statusText.textContent = `Error: ${result.error}`;
+                        btn.style.backgroundColor = '#007bff';
+                    }
+                } catch (error) {
+                    text.textContent = '🌐 Start Rosbridge';
+                    statusText.textContent = `Error: ${error.message}`;
+                    btn.style.backgroundColor = '#007bff';
+                }
+                btn.disabled = false;
+            } else {
+                // Stop rosbridge
+                text.textContent = '⏳ Stopping...';
+                btn.disabled = true;
+                statusText.textContent = 'Stopping...';
+                
+                try {
+                    const response = await fetch('/stop_rosbridge', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    rosbridgeProcess = null;
+                    text.textContent = '🌐 Start Rosbridge';
+                    statusText.textContent = 'Not Running';
+                    btn.style.backgroundColor = '#007bff';
+                    
+                    // Disconnect from ROS when rosbridge stops
+                    if (ros && ros.isConnected) {
+                        manuallyDisconnected = true; // Prevent auto-reconnect
+                        ros.close();
+                        
+                        // Update UI status
+                        const statusElement = document.getElementById('connection-status');
+                        const connectBtn = document.getElementById('ros-connect-btn');
+                        const connectText = document.getElementById('ros-connect-text');
+                        
+                        statusElement.textContent = 'Disconnected';
+                        statusElement.style.color = '#f44336';
+                        connectText.textContent = '🔌 Connect to ROS';
+                        connectBtn.style.backgroundColor = '#4CAF50';
+                        connectBtn.disabled = false;
+                    }
+                } catch (error) {
+                    statusText.textContent = `Error stopping: ${error.message}`;
+                }
+                btn.disabled = false;
+            }
+        }
+
+        // Check system services status on startup
+        async function checkSystemServices() {
+            try {
+                // Check launch service
+                const launchResponse = await fetch('/check_launch_service');
+                const launchResult = await launchResponse.json();
+                
+                const launchText = document.getElementById('launch-service-text');
+                const launchStatusText = document.getElementById('launch-service-status-text');
+                const launchBtn = document.getElementById('launch-service-btn');
+                
+                if (launchResult.running) {
+                    launchServiceProcess = launchResult.pid;
+                    launchText.textContent = '🛑 Stop Launch Service';
+                    launchStatusText.textContent = `Running (PID: ${launchResult.pid})`;
+                    launchBtn.style.backgroundColor = '#dc3545';
+                } else {
+                    launchServiceProcess = null;
+                    launchText.textContent = '🚀 Start Launch Service';
+                    launchStatusText.textContent = 'Not Running';
+                    launchBtn.style.backgroundColor = '#28a745';
+                }
+                
+                // Check rosbridge
+                const rosbridgeResponse = await fetch('/check_rosbridge');
+                const rosbridgeResult = await rosbridgeResponse.json();
+                
+                const rosbridgeText = document.getElementById('rosbridge-service-text');
+                const rosbridgeStatusText = document.getElementById('rosbridge-service-status-text');
+                const rosbridgeBtn = document.getElementById('rosbridge-service-btn');
+                
+                if (rosbridgeResult.running) {
+                    rosbridgeProcess = rosbridgeResult.pid;
+                    rosbridgeText.textContent = '🛑 Stop Rosbridge';
+                    rosbridgeStatusText.textContent = `Running (PID: ${rosbridgeResult.pid})`;
+                    rosbridgeBtn.style.backgroundColor = '#dc3545';
+                    
+                    // Auto-connect if rosbridge is running (only if not manually disconnected)
+                    if (!ros || (!ros.isConnected && !manuallyDisconnected)) {
+                        setTimeout(connectToROS, 1000);
+                    }
+                } else {
+                    rosbridgeProcess = null;
+                    rosbridgeText.textContent = '🌐 Start Rosbridge';
+                    rosbridgeStatusText.textContent = 'Not Running';
+                    rosbridgeBtn.style.backgroundColor = '#007bff';
+                }
+                
+            } catch (error) {
+                console.error('Error checking system services:', error);
+                document.getElementById('rosbridge-service-status-text').textContent = 'Check Failed';
+            }
+        }
+        
+        // Waypoint management variables
+        let waypointMode = 'single'; // 'single' or 'multi'
+        let currentWaypointIndex = 0;
+        let waypointSequenceActive = false;
+        let waypointSequencePaused = false;
+        let waypointCounter = 1;
+        
+        // Emergency stop variables
+        let emergencyStopActive = false;
+        let emergencyStopInterval = null;
+        let cmdVelPublisher = null;
+        let cmdVelSubscriber = null;
+        let lastCmdVelMessage = null;
+        
+        // Launch process tracking
+        let slamLaunched = false;
+        let navigationLaunched = false;
+        let launchProcesses = {
+            slam: null,
+            navigation: null
+        };
+        
+        // Color schemes for map visualization
+        const colorSchemes = {
+            rviz: {
+                unknown: [105, 105, 105, 180],    // Medium gray like RViz
+                free: [238, 238, 238, 255],       // Light gray/white like RViz
+                occupied: [0, 0, 0, 255],         // Black like RViz
+                highProb: [128, 128, 128, 255],   // Dark gray
+                medProb: [170, 170, 170, 255],    // Medium-light gray
+                lowProb: [220, 220, 220, 255]     // Very light gray
+            },
+            classic: {
+                unknown: [128, 128, 128, 200],
+                free: [255, 255, 255, 255],
+                occupied: [0, 0, 0, 255],
+                highProb: [64, 64, 64, 255],
+                medProb: [128, 128, 128, 255],
+                lowProb: [192, 192, 192, 255]
+            },
+            thermal: {
+                unknown: [64, 64, 64, 200],
+                free: [0, 0, 255, 255],      // Blue for free
+                occupied: [255, 0, 0, 255],  // Red for occupied
+                highProb: [255, 100, 0, 255], // Orange
+                medProb: [255, 255, 0, 255],  // Yellow
+                lowProb: [0, 255, 255, 255]   // Cyan
+            },
+            blue: {
+                unknown: [100, 100, 150, 200],
+                free: [200, 220, 255, 255],    // Light blue
+                occupied: [0, 50, 100, 255],   // Dark blue
+                highProb: [50, 100, 150, 255],
+                medProb: [100, 150, 200, 255],
+                lowProb: [150, 200, 255, 255]
+            }, 
+            rainbow: {
+                unknown: [128, 128, 128, 200],  // Gray
+                free: [0, 255, 0, 255],         // Green for free
+                occupied: [255, 0, 255, 255],   // Magenta for occupied
+                highProb: [255, 0, 0, 255],     // Red
+                medProb: [255, 255, 0, 255],    // Yellow
+                lowProb: [0, 255, 255, 255]     // Cyan
+            },
+            test: {
+                unknown: [255, 0, 0, 255],      // Bright red
+                free: [0, 255, 0, 255],         // Bright green
+                occupied: [0, 0, 255, 255],     // Bright blue
+                highProb: [255, 255, 0, 255],   // Yellow
+                medProb: [255, 0, 255, 255],    // Magenta
+                lowProb: [0, 255, 255, 255]     // Cyan
+            }
+        };
+        
+        // Initialize map
+        function initMap() {
+            // Create map with better zoom settings
+            map = L.map('map', {
+                crs: L.CRS.Simple,
+                minZoom: -5,
+                maxZoom: 8,
+                zoomControl: true,
+                doubleClickZoom: true,
+                scrollWheelZoom: true,
+                boxZoom: true,
+                keyboard: true,
+                dragging: true,
+                zoomSnap: 0.25,
+                zoomDelta: 0.5
+            });
+            
+            // Set initial view with better zoom level
+            map.setView([0, 0], 2);
+            
+            // Add custom zoom controls
+            L.control.zoom({
+                position: 'topright'
+            }).addTo(map);
+            
+            // Add scale control
+            L.control.scale({
+                position: 'bottomleft',
+                maxWidth: 200,
+                metric: true,
+                imperial: false
+            }).addTo(map);
+            
+            // Add click handler for setting waypoints
+            map.on('click', onMapClick);
+            
+            // Add mouse coordinate display
+            map.on('mousemove', function(e) {
+                const coords = e.latlng;
+                document.querySelector('.map-controls div:last-child').textContent = 
+                    `Map coordinates: (${coords.lng.toFixed(3)}, ${(-coords.lat).toFixed(3)})`;
+            });
+            
+            // Initialize robot marker with better styling
+            robotMarker = L.marker([0, 0], {
+                icon: L.divIcon({
+                    className: 'robot-marker',
+                    html: '<div style="background: #ff4444; border: 2px solid white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🤖</div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(map);
+            
+            console.log('Map initialized with enhanced zoom controls');
+        }
+        
+        // Toggle ROS connection
+        function toggleROSConnection() {
+            if (ros && ros.isConnected) {
+                disconnectFromROS();
+            } else {
+                connectToROS();
+            }
+        }
+        
+        // Connect to ROS
+        function connectToROS() {
+            const rosbridgeAddress = document.getElementById('rosbridge-address').value;
+            const statusElement = document.getElementById('connection-status');
+            const connectBtn = document.getElementById('ros-connect-btn');
+            const connectText = document.getElementById('ros-connect-text');
+            
+            // Reset manual disconnect flag when user manually connects
+            manuallyDisconnected = false;
+            
+            // Update button state
+            connectText.textContent = '⏳ Connecting...';
+            connectBtn.disabled = true;
+            
+            statusElement.textContent = 'Connecting...';
+            statusElement.style.color = '#ff9800';
+            
+            ros = new ROSLIB.Ros({
+                url: rosbridgeAddress
+            });
+
+            ros.on('connection', function () {
+                console.log('Connected to rosbridge server.');
+                statusElement.textContent = 'Connected';
+                statusElement.style.color = '#4CAF50';
+                
+                // Update button to disconnect state
+                connectText.textContent = '🔌 Disconnect from ROS';
+                connectBtn.style.backgroundColor = '#dc3545';
+                connectBtn.disabled = false;
+                
+                setupTopics();
+            });
+
+            ros.on('error', function (error) {
+                console.error('Error connecting to rosbridge server:', error);
+                statusElement.textContent = 'Error';
+                statusElement.style.color = '#f44336';
+                
+                // Reset button to connect state
+                connectText.textContent = '🔌 Connect to ROS';
+                connectBtn.style.backgroundColor = '#4CAF50';
+                connectBtn.disabled = false;
+            });
+
+            ros.on('close', function () {
+                console.log('Connection to rosbridge server closed.');
+                statusElement.textContent = 'Disconnected';
+                statusElement.style.color = '#f44336';
+                
+                // Reset button to connect state
+                connectText.textContent = '🔌 Connect to ROS';
+                connectBtn.style.backgroundColor = '#4CAF50';
+                connectBtn.disabled = false;
+            });
+        }
+        
+        // Disconnect from ROS
+        function disconnectFromROS() {
+            const statusElement = document.getElementById('connection-status');
+            const connectBtn = document.getElementById('ros-connect-btn');
+            const connectText = document.getElementById('ros-connect-text');
+            
+            // Mark as manually disconnected to prevent auto-reconnect
+            manuallyDisconnected = true;
+            
+            if (ros && ros.isConnected) {
+                // Update button state
+                connectText.textContent = '⏳ Disconnecting...';
+                connectBtn.disabled = true;
+                
+                statusElement.textContent = 'Disconnecting...';
+                statusElement.style.color = '#ff9800';
+                
+                // Stop emergency stop if active
+                if (emergencyStopActive) {
+                    stopEmergencyStop();
+                }
+                
+                // Clean up topics
+                if (odomTopic) {
+                    odomTopic.unsubscribe();
+                }
+                if (mapTopic) {
+                    mapTopic.unsubscribe();
+                }
+                if (laserTopic) {
+                    laserTopic.unsubscribe();
+                }
+                
+                // Close connection
+                ros.close();
+                
+                console.log('Manually disconnected from ROS');
+            } else {
+                // Reset button state if already disconnected
+                connectText.textContent = '🔌 Connect to ROS';
+                connectBtn.style.backgroundColor = '#4CAF50';
+                connectBtn.disabled = false;
+                statusElement.textContent = 'Disconnected';
+                statusElement.style.color = '#f44336';
+            }
+        }
+        
+        // Setup ROS topics
+        function setupTopics() {
+            console.log('Setting up ROS topics...');
+            
+            // Odometry topic for robot position
+            odomTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/odom',
+                messageType: 'nav_msgs/Odometry'
+            });
+
+            odomTopic.subscribe(function (message) {
+                updateRobotPosition(message);
+            });
+            
+            // Goal publisher for navigation
+            goalPublisher = new ROSLIB.Topic({
+                ros: ros,
+                name: '/move_base_simple/goal',
+                messageType: 'geometry_msgs/PoseStamped'
+            });
+            
+            // Cancel goal publisher for emergency stop
+            cancelGoalPublisher = new ROSLIB.Topic({
+                ros: ros,
+                name: '/move_base/cancel',
+                messageType: 'actionlib_msgs/GoalID'
+            });
+            
+            // Velocity publisher for emergency stop
+            cmdVelPublisher = new ROSLIB.Topic({
+                ros: ros,
+                name: '/cmd_vel',
+                messageType: 'geometry_msgs/Twist',
+                qos: {
+                    reliability: 'reliable',
+                    durability: 'volatile',
+                    history: 'keep_last',
+                    depth: 10
+                }
+            });
+            
+            // Velocity subscriber to monitor and override commands during emergency stop
+            cmdVelSubscriber = new ROSLIB.Topic({
+                ros: ros,
+                name: '/cmd_vel',
+                messageType: 'geometry_msgs/Twist',
+                qos: {
+                    reliability: 'reliable',
+                    durability: 'volatile',
+                    history: 'keep_last',
+                    depth: 10
+                }
+            });
+            
+            // Monitor cmd_vel messages and override during emergency stop
+            cmdVelSubscriber.subscribe(function(message) {
+                lastCmdVelMessage = message;
+                
+                // Update velocity display
+                updateVelocityDisplay(message);
+                
+                // If emergency stop is active and we receive a non-zero velocity, override it
+                if (emergencyStopActive) {
+                    const isNonZero = message.linear.x !== 0 || message.linear.y !== 0 || message.linear.z !== 0 ||
+                                     message.angular.x !== 0 || message.angular.y !== 0 || message.angular.z !== 0;
+                    
+                    if (isNonZero) {
+                        console.log('🛑 EMERGENCY STOP: Blocking non-zero velocity command!');
+                        console.log('Blocked command:', message);
+                        
+                        // Immediately send zero velocity to override
+                        setTimeout(() => publishZeroVelocity(), 10); // Small delay to ensure override
+                        
+                        // Update UI to show override action
+                        updateEmergencyOverrideUI();
+                    }
+                }
+            });
+            
+            console.log('Topics set up successfully');
+            
+            // Setup odometry subscription for position display
+            setupOdometrySubscription();
+        }
+        
+        // Update robot position on map
+        function updateRobotPosition(odomMessage) {
+            lastOdomMessage = odomMessage; // Store for laser calculations
+            
+            const x = odomMessage.pose.pose.position.x;
+            const y = odomMessage.pose.pose.position.y;
+            
+            // Convert ROS coordinates to Leaflet coordinates
+            const mapX = -y; // Flip Y axis
+            const mapY = x;
+            
+            // Update robot marker position
+            if (document.getElementById('show-robot').checked) {
+                robotMarker.setLatLng([mapX, mapY]);
+            }
+            
+            // Update UI
+            document.getElementById('robot-x').textContent = x.toFixed(3);
+            document.getElementById('robot-y').textContent = y.toFixed(3);
+            
+            // Calculate orientation
+            const quat = odomMessage.pose.pose.orientation;
+            const yaw = Math.atan2(2 * (quat.w * quat.z + quat.x * quat.y), 
+                                 1 - 2 * (quat.y * quat.y + quat.z * quat.z));
+            const yawDegrees = yaw * 180 / Math.PI;
+            document.getElementById('robot-theta').textContent = yawDegrees.toFixed(1);
+        }
+        
+        // Joystick Control Functions
+        function setupJoystick() {
+            console.log('Setting up joystick...');
+            
+            // Browser detection for debugging
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            const isFirefox = /Firefox/.test(navigator.userAgent);
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            console.log(`🌐 Browser Detection: Chrome=${isChrome}, Firefox=${isFirefox}, Safari=${isSafari}`);
+            console.log(`🌐 User Agent: ${navigator.userAgent}`);
+            
+            // Check if nipplejs is loaded
+            if (typeof nipplejs === 'undefined') {
+                console.error('❌ nipplejs library not loaded!');
+                console.log('Retrying joystick setup in 2 seconds...');
+                setTimeout(setupJoystick, 2000);
+                return;
+            }
+            
+            const joystickContainer = document.getElementById('joystick');
+            
+            if (!joystickContainer) {
+                console.error('❌ Joystick container not found!');
+                console.log('Retrying joystick setup in 1 second...');
+                setTimeout(setupJoystick, 1000);
+                return;
+            }
+            
+            // Check if the container is properly attached to the DOM
+            if (!joystickContainer.parentElement) {
+                console.error('❌ Joystick container not attached to DOM!');
+                console.log('Retrying joystick setup in 1 second...');
+                setTimeout(setupJoystick, 1000);
+                return;
+            }
+            
+            console.log('✅ Joystick container found:', joystickContainer);
+            console.log('✅ Container dimensions:', joystickContainer.offsetWidth, 'x', joystickContainer.offsetHeight);
+            console.log('✅ Container parent:', joystickContainer.parentElement);
+            
+            // Clear any existing joystick
+            if (joystick) {
+                try {
+                    joystick.destroy();
+                } catch (e) {
+                    console.warn('Warning destroying previous joystick:', e);
+                }
+                joystick = null;
+            }
+            
+            try {
+                // Create joystick with browser-compatible options
+                joystick = nipplejs.create({
+                    zone: joystickContainer,
+                    mode: 'static',
+                    position: { left: '50%', top: '50%' },
+                    color: 'blue',
+                    size: 150,
+                    threshold: 0.1,
+                    fadeTime: 250,
+                    multitouch: false,
+                    maxNumberOfNipples: 1,
+                    dataOnly: false,
+                    restJoystick: true,
+                    restOpacity: 0.5,
+                    // Browser compatibility fixes
+                    lockX: false,
+                    lockY: false,
+                    catchDistance: 200,
+                    dynamicPage: true //this is important for some browsers to work properly. specificllay for chrome 
+                });
+                
+                console.log('✅ Joystick created successfully:', joystick);
+                
+                // Enhanced debugging for browser compatibility
+                console.log('🎮 Joystick options used:', {
+                    zone: joystickContainer,
+                    mode: 'static',
+                    position: { left: '50%', top: '50%' },
+                    color: 'blue',
+                    size: 150,
+                    threshold: 0.1,
+                    lockX: false,
+                    lockY: false
+                });
+                
+                // Joystick event handlers with enhanced debugging
+                joystick.on('move', function(evt, data) {
+                    console.log('🎮 Joystick MOVE event:', {
+                        distance: data.distance,
+                        angle: data.angle?.degree,
+                        vector: data.vector,
+                        position: data.position,
+                        force: data.force,
+                        pressure: data.pressure
+                    });
+                    handleJoystickMove(data);
+                });
+                
+                joystick.on('end', function(evt) {
+                    console.log('🎮 Joystick END event');
+                    handleJoystickEnd();
+                });
+                
+                joystick.on('start', function(evt, data) {
+                    console.log('🎮 Joystick START event:', {
+                        position: data?.position,
+                        distance: data?.distance
+                    });
+                });
+                
+                joystick.on('dir', function(evt, data) {
+                    console.log('🎮 Joystick DIR event:', {
+                        direction: data.direction?.original,
+                        angle: data.direction?.angle
+                    });
+                });
+                
+                console.log('✅ Joystick setup complete with all event handlers and debugging');
+            } catch (error) {
+                console.error('❌ Error creating joystick:', error);
+                alert('Error creating joystick: ' + error.message);
+            }
+        }
+        
+        function handleJoystickMove(data) {
+            // Enhanced debugging for browser compatibility issues
+            console.log('🎮 handleJoystickMove called with:', {
+                distance: data.distance,
+                angle: data.angle?.degree,
+                vector: data.vector,
+                force: data.force,
+                browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+                        navigator.userAgent.includes('Firefox') ? 'Firefox' : 'Other'
+            });
+            
+            const distance = data.distance || 0;
+            const force = Math.min(distance / 60, 1); // Normalize to max 1
+            
+            // Ensure vector exists and has valid values
+            if (!data.vector || typeof data.vector.x === 'undefined' || typeof data.vector.y === 'undefined') {
+                console.warn('⚠️ Invalid vector data:', data.vector);
+                return;
+            }
+            
+            // Calculate velocities based on joystick position
+            const maxLinearSpeed = 1.0; // m/s
+            const maxAngularSpeed = 2.0; // rad/s
+            
+            // Use the vector components directly for more intuitive control
+            // data.vector.x: left(-1) to right(+1)
+            // data.vector.y: down(-1) to up(+1)
+            
+            // Linear velocity: forward(+) when joystick is up, backward(-) when down
+            const linearVel = -data.vector.y * force * maxLinearSpeed;
+            
+            // Angular velocity: rotate left(+) when joystick is left, rotate right(-) when right
+            const angularVel = -data.vector.x * force * maxAngularSpeed;
+            
+            console.log('🎮 Calculated velocities:', {
+                linear: linearVel,
+                angular: angularVel,
+                force: force,
+                vectorX: data.vector.x,
+                vectorY: data.vector.y
+            });
+            
+            // Update UI displays
+            updateJoystickUI(data.distance, data.angle?.degree || 0, data.vector);
+            updateVelocityUI(linearVel, angularVel);
+            
+            // Publish velocity command
+            publishVelocity(linearVel, angularVel);
+        }
+        
+        function handleJoystickEnd() {
+            // Stop the robot
+            publishVelocity(0, 0);
+            
+            // Update UI
+            updateJoystickUI(0, 0, {x: 0, y: 0});
+            updateVelocityUI(0, 0);
+        }
+        
+        function updateJoystickUI(distance, angle, vector) {
+            document.getElementById('joystick-distance').textContent = distance.toFixed(1);
+            document.getElementById('joystick-angle').textContent = angle.toFixed(1) + '°';
+            
+            if (distance === 0) {
+                document.getElementById('joystick-position').textContent = 'Center';
+            } else {
+                document.getElementById('joystick-position').textContent = `(${vector.x.toFixed(2)}, ${vector.y.toFixed(2)})`;
+            }
+        }
+        
+        function updateVelocityUI(linear, angular) {
+            document.getElementById('linear-velocity').textContent = linear.toFixed(2) + ' m/s';
+            document.getElementById('angular-velocity').textContent = angular.toFixed(2) + ' rad/s';
+        }
+        
+        function publishVelocity(linear, angular) {
+            if (!cmdVelPublisher || !ros || !ros.isConnected) {
+                return;
+            }
+            
+            const twist = new ROSLIB.Message({
+                linear: {
+                    x: linear,
+                    y: 0,
+                    z: 0
+                },
+                angular: {
+                    x: 0,
+                    y: 0,
+                    z: angular
+                }
+            });
+            
+            cmdVelPublisher.publish(twist);
+        }
+        
+        function setupOdometrySubscription() {
+            // Odometry subscription for position display (if not already handled)
+            if (!odomSubscriber) {
+                odomSubscriber = new ROSLIB.Topic({
+                    ros: ros,
+                    name: '/odom',
+                    messageType: 'nav_msgs/Odometry'
+                });
+                
+                odomSubscriber.subscribe(function(message) {
+                    // Update robot position display in joystick panel
+                    updateRobotPositionDisplay(message);
+                });
+            }
+        }
+        
+        function updateRobotPositionDisplay(odomMessage) {
+            const x = odomMessage.pose.pose.position.x;
+            const y = odomMessage.pose.pose.position.y;
+            
+            // Calculate orientation
+            const quat = odomMessage.pose.pose.orientation;
+            const yaw = Math.atan2(2 * (quat.w * quat.z + quat.x * quat.y), 
+                                 1 - 2 * (quat.y * quat.y + quat.z * quat.z));
+            const yawDegrees = yaw * 180 / Math.PI;
+            
+            // Update position display in joystick panel
+            document.getElementById('joystick-robot-x').textContent = x.toFixed(3);
+            document.getElementById('joystick-robot-y').textContent = y.toFixed(3);
+            document.getElementById('joystick-robot-theta').textContent = yawDegrees.toFixed(1);
+        }
+        
+        // Laser scan functions
+        function toggleLaserSubscription() {
+            if (laserSubscribed) {
+                unsubscribeLaser();
+            } else {
+                subscribeLaser();
+            }
+        }
+        
+        function subscribeLaser() {
+            const topicName = document.getElementById('laser-topic').value;
+            
+            laserTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: topicName,
+                messageType: 'sensor_msgs/LaserScan'
+            });
+
+            laserTopic.subscribe(function (message) {
+                console.log('Received laser scan with', message.ranges.length, 'points');
+                updateLaserScan(message);
+            });
+            
+            laserSubscribed = true;
+            document.getElementById('laser-sub-text').textContent = 'Unsubscribe Laser';
+            console.log('Subscribed to laser topic:', topicName);
+        }
+        
+        function unsubscribeLaser() {
+            if (laserTopic) {
+                laserTopic.unsubscribe();
+                laserTopic = null;
+            }
+            laserSubscribed = false;
+            document.getElementById('laser-sub-text').textContent = 'Subscribe to Laser';
+            clearLaser();
+            console.log('Unsubscribed from laser topic');
+        }
+        
+        function updateLaserScan(scanMessage) {
+            lastLaserMessage = scanMessage; // Store for color updates
+            
+            if (!document.getElementById('show-laser').checked) {
+                return;
+            }
+            
+            // Clear previous laser points
+            clearLaser();
+            
+            const ranges = scanMessage.ranges;
+            const angleMin = scanMessage.angle_min;
+            const angleIncrement = scanMessage.angle_increment;
+            const rangeMax = scanMessage.range_max;
+            
+            laserPoints = [];
+            
+            // Get robot position from odometry
+            let robotX = 0, robotY = 0, robotAngle = 0;
+            if (robotMarker) {
+                const robotPos = robotMarker.getLatLng();
+                robotX = robotPos.lng; // Actually Y in ROS
+                robotY = -robotPos.lat; // Actually X in ROS (flipped)
+                
+                // Get robot orientation from last odometry message
+                if (lastOdomMessage) {
+                    const quat = lastOdomMessage.pose.pose.orientation;
+                    robotAngle = Math.atan2(2 * (quat.w * quat.z + quat.x * quat.y), 
+                                          1 - 2 * (quat.y * quat.y + quat.z * quat.z));
+                }
+            }
+            
+            // Convert laser scan to points
+            for (let i = 0; i < ranges.length; i++) {
+                const range = ranges[i];
+                
+                // Skip invalid readings
+                if (isNaN(range) || range <= 0 || range >= rangeMax) {
+                    continue;
+                }
+                
+                const angle = angleMin + i * angleIncrement + robotAngle;
+                
+                // Calculate point position in ROS coordinates
+                const pointX = robotX + range * Math.cos(angle);
+                const pointY = robotY + range * Math.sin(angle);
+                
+                // Convert to Leaflet coordinates
+                const mapX = -pointY; // Flip Y axis
+                const mapY = pointX;
+                
+                // Create colored marker based on distance
+                const color = getLaserPointColor(range, rangeMax);
+                
+                const marker = L.circleMarker([mapX, mapY], {
+                    radius: 2,
+                    fillColor: color,
+                    color: color,
+                    weight: 1,
+                    opacity: 0.8,
+                    fillOpacity: 0.8
+                });
+                
+                marker.addTo(map);
+                laserPoints.push(marker);
+            }
+            
+            console.log('Rendered', laserPoints.length, 'laser points');
+        }
+        
+        function getLaserPointColor(range, maxRange) {
+            const colorScheme = document.getElementById('laser-color').value;
+            
+            if (colorScheme === 'rainbow') {
+                // Rainbow color based on distance
+                const ratio = range / maxRange;
+                const hue = (1 - ratio) * 240; // Blue to red
+                return `hsl(${hue}, 100%, 50%)`;
+            } else {
+                return colorScheme;
+            }
+        }
+        
+        function clearLaser() {
+            if (laserPoints) {
+                laserPoints.forEach(point => {
+                    map.removeLayer(point);
+                });
+                laserPoints = [];
+            }
+        }
+        
+        function updateLaserColor(color) {
+            // Re-render laser points with new color if they exist
+            if (laserPoints && laserPoints.length > 0 && lastLaserMessage) {
+                updateLaserScan(lastLaserMessage);
+            }
+        }
+        
+        // Handle map clicks for waypoint setting
+        function onMapClick(e) {
+            if (!navigationMode) return;
+            
+            // Check if emergency stop is active
+            if (emergencyStopActive) {
+                alert('🛑 Cannot set waypoints - Emergency Stop is active!\nPlease reset E-Stop first.');
+                return;
+            }
+            
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            
+            // Convert back to ROS coordinates
+            const rosX = lng;
+            const rosY = -lat;
+            
+            if (waypointMode === 'single') {
+                // Clear existing waypoints for single goal mode
+                clearWaypoints();
+                
+                // Add waypoint
+                addWaypoint(rosX, rosY, lat, lng);
+                
+                // Send navigation goal immediately
+                sendNavigationGoal(rosX, rosY);
+            } else if (waypointMode === 'multi') {
+                // Add waypoint to sequence
+                addWaypoint(rosX, rosY, lat, lng);
+                
+                // Show sequence controls if we have waypoints
+                if (waypoints.length > 0) {
+                    document.getElementById('waypoint-sequence-controls').style.display = 'block';
+                }
+            }
+        }
+        
+        // Add waypoint to list and map
+        function addWaypoint(rosX, rosY, mapX, mapY) {
+            const waypoint = {
+                id: Date.now(),
+                number: waypointCounter++,
+                rosX: rosX,
+                rosY: rosY,
+                mapX: mapX,
+                mapY: mapY,
+                marker: null,
+                completed: false,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            // Create different markers for different modes
+            const markerIcon = waypointMode === 'single' ? '🎯' : `${waypoint.number}`;
+            const markerColor = waypointMode === 'single' ? '#007bff' : '#28a745';
+            
+            // Add marker to map
+            waypoint.marker = L.marker([mapX, mapY], {
+                icon: L.divIcon({
+                    className: 'waypoint-marker',
+                    html: `<div style="background: ${markerColor}; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${markerIcon}</div>`,
+                    iconSize: [25, 25],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(map);
+            
+            waypoints.push(waypoint);
+            updateWaypointList();
+            updateWaypointStats();
+        }
+        
+        // Send navigation goal to ROS
+        function sendNavigationGoal(x, y) {
+            // Check if emergency stop is active
+            if (emergencyStopActive) {
+                alert('🛑 Cannot send navigation goal - Emergency Stop is active!\nPlease reset E-Stop first.');
+                return;
+            }
+            
+            if (!goalPublisher) return;
+            
+            const goal = new ROSLIB.Message({
+                header: {
+                    frame_id: 'map',
+                    stamp: {
+                        sec: Math.floor(Date.now() / 1000),
+                        nanosec: (Date.now() % 1000) * 1000000
+                    }
+                },
+                pose: {
+                    position: {
+                        x: x,
+                        y: y,
+                        z: 0.0
+                    },
+                    orientation: {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        w: 1.0
+                    }
+                }
+            });
+            
+            goalPublisher.publish(goal);
+            console.log('Published navigation goal:', x, y);
+            
+            document.getElementById('robot-status').textContent = 'Navigating';
+        }
+        
+        // Toggle navigation mode
+        function setNavigationMode() {
+            navigationMode = !navigationMode;
+            const button = document.getElementById('nav-mode-text');
+            
+            if (navigationMode) {
+                button.textContent = 'Navigation Mode ON';
+                button.parentElement.style.backgroundColor = '#28a745';
+            } else {
+                button.textContent = 'Click to Set Goal';
+                button.parentElement.style.backgroundColor = '#007bff';
+            }
+        }
+        
+        // Cancel navigation
+        function cancelNavigation() {
+            // TODO: Implement navigation cancellation
+            document.getElementById('robot-status').textContent = 'Idle';
+            console.log('Navigation cancelled');
+        }
+        
+        // Clear all waypoints
+        function clearWaypoints() {
+            waypoints.forEach(waypoint => {
+                map.removeLayer(waypoint.marker);
+            });
+            waypoints = [];
+            waypointCounter = 1;
+            currentWaypointIndex = 0;
+            waypointSequenceActive = false;
+            waypointSequencePaused = false;
+            updateWaypointList();
+            updateWaypointStats();
+            document.getElementById('waypoint-sequence-controls').style.display = 'none';
+        }
+        
+        // Emergency Stop Function - TRUE E-STOP IMPLEMENTATION
+        function emergencyStop() {
+            console.log('🛑 EMERGENCY STOP ACTIVATED - FULL SYSTEM HALT!');
+            
+            // Set emergency stop flag
+            emergencyStopActive = true;
+            
+            // 1. IMMEDIATE VELOCITY STOP - Send zero velocities immediately
+            publishZeroVelocity();
+            
+            // 2. Cancel all navigation goals
+            if (cancelGoalPublisher) {
+                const cancelMsg = new ROSLIB.Message({
+                    stamp: {
+                        sec: Math.floor(Date.now() / 1000),
+                        nanosec: (Date.now() % 1000) * 1000000
+                    },
+                    id: '' // Empty ID cancels all goals
+                });
+                
+                cancelGoalPublisher.publish(cancelMsg);
+                console.log('🚫 All navigation goals cancelled');
+            }
+            
+            // 3. AGGRESSIVE ZERO VELOCITY PUBLISHING
+            // Keep publishing zero velocities every 50ms for immediate override
+            if (emergencyStopInterval) {
+                clearInterval(emergencyStopInterval);
+            }
+            
+            emergencyStopInterval = setInterval(() => {
+                if (emergencyStopActive) {
+                    publishZeroVelocity();
+                }
+            }, 50); // Publish every 50ms for aggressive override
+            
+            // 4. Stop all waypoint sequences
+            waypointSequenceActive = false;
+            waypointSequencePaused = false;
+            
+            // 5. Update UI with emergency state
+            updateEmergencyStopUI(true);
+            
+            // 6. Visual and audio feedback
+            alert('🛑 EMERGENCY STOP ACTIVATED!\n\n' +
+                  '• All motion STOPPED\n' +
+                  '• Navigation goals CANCELLED\n' +
+                  '• Velocity override ACTIVE\n' +
+                  '• Robot is now in SAFE STATE\n\n' +
+                  'Click "Reset E-Stop" to resume operations.');
+            
+            console.log('🛡️ Emergency stop safety protocol fully activated with velocity override');
+        }
+        
+        // Publish zero velocity command
+        function publishZeroVelocity() {
+            if (!cmdVelPublisher) return;
+            
+            const stopMsg = new ROSLIB.Message({
+                linear: {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                },
+                angular: {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                }
+            });
+            
+            cmdVelPublisher.publish(stopMsg);
+        }
+        
+        // Reset Emergency Stop
+        function resetEmergencyStop() {
+            console.log('🔄 Resetting Emergency Stop - System Recovery');
+            
+            // Clear the continuous velocity publishing
+            if (emergencyStopInterval) {
+                clearInterval(emergencyStopInterval);
+                emergencyStopInterval = null;
+            }
+            
+            // Send one final zero velocity command
+            publishZeroVelocity();
+            
+            // Reset emergency stop flag
+            emergencyStopActive = false;
+            
+            // Update UI
+            updateEmergencyStopUI(false);
+            
+            console.log('✅ Emergency stop cleared - System ready for operation');
+        }
+        
+        // Update UI for emergency stop state
+        function updateEmergencyStopUI(isEmergencyActive) {
+            const emergencyBtn = document.querySelector('.emergency-stop');
+            const robotStatus = document.getElementById('robot-status');
+            const waypointStatus = document.getElementById('waypoint-sequence-status');
+            
+            if (isEmergencyActive) {
+                // Change emergency button to reset button
+                emergencyBtn.textContent = '🔄 RESET E-STOP';
+                emergencyBtn.onclick = resetEmergencyStop;
+                emergencyBtn.style.backgroundColor = '#ff6b6b';
+                emergencyBtn.style.animation = 'pulse 1s infinite';
+                
+                // Update status indicators
+                robotStatus.textContent = '🛑 EMERGENCY STOPPED';
+                robotStatus.style.color = '#dc3545';
+                robotStatus.style.fontWeight = 'bold';
+                
+                waypointStatus.textContent = 'Emergency Stopped';
+                
+                // Disable navigation controls
+                const navControls = document.querySelectorAll('.nav-button, .stop-button');
+                navControls.forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                });
+                
+            } else {
+                // Restore emergency button
+                emergencyBtn.textContent = '🛑 EMERGENCY STOP';
+                emergencyBtn.onclick = emergencyStop;
+                emergencyBtn.style.backgroundColor = '#dc3545';
+                emergencyBtn.style.animation = 'pulse 2s infinite';
+                
+                // Reset status indicators
+                robotStatus.textContent = 'Idle';
+                robotStatus.style.color = '#007bff';
+                robotStatus.style.fontWeight = 'normal';
+                
+                waypointStatus.textContent = 'Ready';
+                
+                // Re-enable navigation controls
+                const navControls = document.querySelectorAll('.nav-button, .stop-button');
+                navControls.forEach(btn => {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                });
+            }
+        }
+        
+        // Update velocity display in UI
+        function updateVelocityDisplay(velMessage) {
+            const linearSpeed = Math.sqrt(
+                velMessage.linear.x * velMessage.linear.x + 
+                velMessage.linear.y * velMessage.linear.y + 
+                velMessage.linear.z * velMessage.linear.z
+            );
+            const angularSpeed = Math.abs(velMessage.angular.z);
+            
+            document.getElementById('vel-linear').textContent = linearSpeed.toFixed(3);
+            document.getElementById('vel-angular').textContent = angularSpeed.toFixed(3);
+            
+            const statusElement = document.getElementById('vel-status');
+            const isMoving = linearSpeed > 0.001 || angularSpeed > 0.001;
+            
+            if (emergencyStopActive && isMoving) {
+                statusElement.textContent = '🛑 BLOCKED!';
+                statusElement.style.color = '#dc3545';
+                statusElement.style.fontWeight = 'bold';
+            } else if (isMoving) {
+                statusElement.textContent = '🏃 Moving';
+                statusElement.style.color = '#28a745';
+                statusElement.style.fontWeight = 'normal';
+            } else {
+                statusElement.textContent = '⏸️ Stopped';
+                statusElement.style.color = '#666';
+                statusElement.style.fontWeight = 'normal';
+            }
+        }
+        
+        // Update UI when velocity commands are being overridden
+        function updateEmergencyOverrideUI() {
+            const robotStatus = document.getElementById('robot-status');
+            const originalText = robotStatus.textContent;
+            
+            // Flash override message
+            robotStatus.textContent = '🛑 VELOCITY BLOCKED!';
+            robotStatus.style.color = '#ff0000';
+            robotStatus.style.fontWeight = 'bold';
+            robotStatus.style.backgroundColor = '#ffeeee';
+            
+            // Restore original status after 1 second
+            setTimeout(() => {
+                robotStatus.textContent = originalText;
+                robotStatus.style.color = '#dc3545';
+                robotStatus.style.backgroundColor = 'transparent';
+            }, 1000);
+        }
+        
+        // Set waypoint mode
+        function setWaypointMode(mode) {
+            waypointMode = mode;
+            
+            // Update button states
+            const singleBtn = document.getElementById('single-goal-btn');
+            const multiBtn = document.getElementById('multi-waypoint-btn');
+            
+            if (mode === 'single') {
+                singleBtn.className = 'mode-active';
+                multiBtn.className = 'mode-inactive';
+                // Clear existing waypoints when switching to single mode
+                clearWaypoints();
+                document.getElementById('waypoint-sequence-controls').style.display = 'none';
+            } else {
+                singleBtn.className = 'mode-inactive';
+                multiBtn.className = 'mode-active';
+                // Show sequence controls if we have waypoints
+                if (waypoints.length > 0) {
+                    document.getElementById('waypoint-sequence-controls').style.display = 'block';
+                }
+            }
+            
+            document.getElementById('current-waypoint-mode').textContent = mode === 'single' ? 'Single Goal' : 'Multi Waypoints';
+            updateWaypointStats();
+        }
+        
+        // Execute waypoint sequence
+        function executeWaypointSequence() {
+            // Check if emergency stop is active
+            if (emergencyStopActive) {
+                alert('🛑 Cannot execute waypoint sequence - Emergency Stop is active!\nPlease reset E-Stop first.');
+                return;
+            }
+            
+            if (waypoints.length === 0) {
+                alert('No waypoints to execute!');
+                return;
+            }
+            
+            waypointSequenceActive = true;
+            waypointSequencePaused = false;
+            currentWaypointIndex = 0;
+            
+            // Reset all waypoints as not completed
+            waypoints.forEach(wp => wp.completed = false);
+            
+            executeNextWaypoint();
+            updateWaypointList();
+            updateWaypointStats();
+        }
+        
+        // Execute next waypoint in sequence
+        function executeNextWaypoint() {
+            // Check for emergency stop
+            if (emergencyStopActive) {
+                waypointSequenceActive = false;
+                waypointSequencePaused = false;
+                updateWaypointStats();
+                return;
+            }
+            
+            if (!waypointSequenceActive || waypointSequencePaused || currentWaypointIndex >= waypoints.length) {
+                return;
+            }
+            
+            const waypoint = waypoints[currentWaypointIndex];
+            console.log(`Executing waypoint ${currentWaypointIndex + 1}: (${waypoint.rosX}, ${waypoint.rosY})`);
+            
+            sendNavigationGoal(waypoint.rosX, waypoint.rosY);
+            document.getElementById('waypoint-sequence-status').textContent = `Executing WP${waypoint.number}`;
+            
+            // For demo purposes, automatically move to next waypoint after 10 seconds
+            // In a real implementation, you'd listen to navigation feedback
+            setTimeout(() => {
+                if (waypointSequenceActive && !waypointSequencePaused && !emergencyStopActive) {
+                    waypoint.completed = true;
+                    currentWaypointIndex++;
+                    
+                    if (currentWaypointIndex < waypoints.length) {
+                        executeNextWaypoint();
+                    } else {
+                        // Sequence completed
+                        waypointSequenceActive = false;
+                        document.getElementById('waypoint-sequence-status').textContent = 'Sequence Completed';
+                        console.log('Waypoint sequence completed!');
+                    }
+                    
+                    updateWaypointList();
+                    updateWaypointStats();
+                }
+            }, 10000); // 10 seconds per waypoint for demo
+        }
+        
+        // Pause waypoint sequence
+        function pauseWaypointSequence() {
+            waypointSequencePaused = !waypointSequencePaused;
+            
+            if (waypointSequencePaused) {
+                document.getElementById('waypoint-sequence-status').textContent = 'Paused';
+                // Cancel current goal
+                if (cancelGoalPublisher) {
+                    const cancelMsg = new ROSLIB.Message({
+                        stamp: {
+                            sec: Math.floor(Date.now() / 1000),
+                            nanosec: (Date.now() % 1000) * 1000000
+                        },
+                        id: ''
+                    });
+                    cancelGoalPublisher.publish(cancelMsg);
+                }
+            } else {
+                executeNextWaypoint();
+            }
+            
+            updateWaypointStats();
+        }
+        
+        // Update waypoint statistics
+        function updateWaypointStats() {
+            const statsDiv = document.getElementById('waypoint-stats');
+            const countSpan = document.getElementById('waypoint-count');
+            
+            countSpan.textContent = waypoints.length;
+            
+            if (waypoints.length > 0 && waypointMode === 'multi') {
+                statsDiv.style.display = 'block';
+                document.getElementById('current-waypoint-index').textContent = waypointSequenceActive ? currentWaypointIndex + 1 : '-';
+                document.getElementById('total-waypoints').textContent = waypoints.length;
+                
+                let status = 'Idle';
+                if (waypointSequenceActive) {
+                    status = waypointSequencePaused ? 'Paused' : 'Active';
+                }
+                document.getElementById('waypoint-sequence-status').textContent = status;
+            } else {
+                statsDiv.style.display = 'none';
+            }
+        }
+        
+        // Update waypoint list in sidebar
+        function updateWaypointList() {
+            const list = document.getElementById('waypoint-list');
+            
+            if (waypoints.length === 0) {
+                list.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No waypoints set</div>';
+                document.getElementById('waypoint-sequence-controls').style.display = 'none';
+                return;
+            }
+            
+            list.innerHTML = waypoints.map((waypoint, index) => {
+                const statusIcon = waypoint.completed ? '✅' : (index === currentWaypointIndex && waypointSequenceActive ? '🔄' : '⭕');
+                const statusClass = waypoint.completed ? 'style="opacity: 0.6;"' : '';
+                
+                return `
+                    <div class="waypoint-item" ${statusClass}>
+                        <div>
+                            <span>${statusIcon} ${waypointMode === 'single' ? 'Goal' : 'WP' + waypoint.number}: (${waypoint.rosX.toFixed(2)}, ${waypoint.rosY.toFixed(2)})</span>
+                            <div style="font-size: 10px; color: #888;">${waypoint.timestamp}</div>
+                        </div>
+                        <button class="delete-waypoint" onclick="deleteWaypoint(${waypoint.id})">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Delete specific waypoint
+        function deleteWaypoint(id) {
+            const index = waypoints.findIndex(w => w.id === id);
+            if (index !== -1) {
+                map.removeLayer(waypoints[index].marker);
+                waypoints.splice(index, 1);
+                
+                // Adjust current waypoint index if needed
+                if (index <= currentWaypointIndex && currentWaypointIndex > 0) {
+                    currentWaypointIndex--;
+                }
+                
+                updateWaypointList();
+                updateWaypointStats();
+                
+                // Hide sequence controls if no waypoints left
+                if (waypoints.length === 0) {
+                    document.getElementById('waypoint-sequence-controls').style.display = 'none';
+                }
+            }
+        }
+        
+        // Toggle map subscription
+        function toggleMapSubscription() {
+            if (!mapSubscribed) {
+                subscribeToMap();
+            } else {
+                unsubscribeFromMap();
+            }
+        }
+        
+        // Subscribe to map topic
+        function subscribeToMap() {
+            if (!ros) return;
+            
+            mapTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/map',
+                messageType: 'nav_msgs/msg/OccupancyGrid'
+            });
+            
+            mapTopic.subscribe(function (message) {
+                mapUpdateCount++;
+                console.log(`📊 Map update #${mapUpdateCount} received`);
+                displayMap(message);
+            });
+            
+            mapSubscribed = true;
+            document.getElementById('map-sub-text').textContent = 'Unsubscribe from Map';
+        }
+        
+        // Unsubscribe from map
+        function unsubscribeFromMap() {
+            if (mapTopic) {
+                mapTopic.unsubscribe();
+                mapTopic = null;
+            }
+            
+            mapSubscribed = false;
+            document.getElementById('map-sub-text').textContent = 'Subscribe to Map';
+        }
+        
+        // Display occupancy grid map
+        function displayMap(mapMessage) {
+            try {
+                const newWidth = mapMessage.info.width;
+                const newHeight = mapMessage.info.height;
+                const newResolution = mapMessage.info.resolution;
+                
+                // Check if map size has changed
+                if (mapData) {
+                    const oldWidth = mapData.info.width;
+                    const oldHeight = mapData.info.height;
+                    if (oldWidth !== newWidth || oldHeight !== newHeight) {
+                        mapResizeCount++;
+                        console.log(`🗺️  Map resize #${mapResizeCount}: ${oldWidth}×${oldHeight} → ${newWidth}×${newHeight} (${newResolution}m/pix)`);
+                        updateMapInfo(newWidth, newHeight, newResolution, 'resized');
+                    } else {
+                        updateMapInfo(newWidth, newHeight, newResolution, 'updated');
+                    }
+                } else {
+                    console.log('📍 Initial map data received, size:', newWidth, 'x', newHeight);
+                    updateMapInfo(newWidth, newHeight, newResolution, 'initial');
+                }
+                
+                // Store map data for color scheme changes
+                mapData = mapMessage;
+                
+                const info = mapMessage.info;
+                const data = mapMessage.data;
+
+                console.log('Map info:', {
+                    resolution: info.resolution,
+                    width: info.width,
+                    height: info.height,
+                    currentColorScheme: currentColorScheme
+                });
+                
+                // Sample the data to see what values we have (reduced logging)
+                const sampleValues = [];
+                for (let i = 0; i < Math.min(20, data.length); i += 5) {
+                    sampleValues.push(data[i]);
+                }
+                console.log('Sample map values:', sampleValues);
+                
+                // Clear existing map layer if any
+                if (window.mapImageOverlay) {
+                    map.removeLayer(window.mapImageOverlay);
+                }
+                
+                // Create high-resolution canvas for better quality
+                const scaleFactor = 2; // Reduced from 4 to prevent memory issues
+                const canvas = document.createElement('canvas');
+                canvas.width = info.width * scaleFactor;
+                canvas.height = info.height * scaleFactor;
+                const ctx = canvas.getContext('2d');
+                
+                // Disable image smoothing for crisp pixels
+                ctx.imageSmoothingEnabled = false;
+                
+                // Create image data
+                const imageData = ctx.createImageData(info.width * scaleFactor, info.height * scaleFactor);
+                
+                // Get color scheme safely
+                const scheme = colorSchemes[currentColorScheme] || colorSchemes.thermal;
+                console.log('Using color scheme:', currentColorScheme);
+                
+                // Convert occupancy grid to high-res image
+                for (let i = 0; i < data.length; i++) {
+                    const value = data[i];
+                    const x = i % info.width;
+                    const y = Math.floor(i / info.width);
+                    
+                    // Flip Y axis for proper display
+                    const flippedY = info.height - 1 - y;
+                    
+                    let r, g, b, a;
+                    
+                    if (value === -1) {
+                        [r, g, b, a] = scheme.unknown;
+                    } else if (value === 0) {
+                        [r, g, b, a] = scheme.free;
+                    } else if (value >= 65) {
+                        [r, g, b, a] = scheme.occupied;
+                    } else if (value > 50) {
+                        [r, g, b, a] = scheme.highProb;
+                    } else if (value > 20) {
+                        [r, g, b, a] = scheme.medProb;
+                    } else {
+                        [r, g, b, a] = scheme.lowProb;
+                    }
+                    
+                    // Only log first few pixels to avoid spam
+                    if (i < 3) {
+                        console.log(`Pixel ${i}: value=${value}, color=[${r},${g},${b},${a}]`);
+                    }
+                    
+                    // Draw scaled pixels for higher resolution
+                    for (let sx = 0; sx < scaleFactor; sx++) {
+                        for (let sy = 0; sy < scaleFactor; sy++) {
+                            const pixelX = x * scaleFactor + sx;
+                            const pixelY = flippedY * scaleFactor + sy;
+                            const pixelIndex = (pixelY * info.width * scaleFactor + pixelX) * 4;
+                            
+                            imageData.data[pixelIndex] = r;
+                            imageData.data[pixelIndex + 1] = g;
+                            imageData.data[pixelIndex + 2] = b;
+                            imageData.data[pixelIndex + 3] = a;
+                        }
+                    }
+                }
+                
+                // Put image data on canvas
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Convert canvas to data URL
+                const dataURL = canvas.toDataURL('image/png');
+                
+                // Calculate map bounds in Leaflet coordinates
+                const originX = info.origin.position.x;
+                const originY = info.origin.position.y;
+                const resolution = info.resolution;
+                
+                const mapOriginLat = -originY;
+                const mapOriginLng = originX;
+                const mapEndLat = -(originY + info.height * resolution);
+                const mapEndLng = originX + info.width * resolution;
+                
+                const bounds = [[mapEndLat, mapOriginLng], [mapOriginLat, mapEndLng]];
+                
+                // Add image overlay to map with crisp rendering
+                window.mapImageOverlay = L.imageOverlay(dataURL, bounds, {
+                    opacity: 0.9,
+                    interactive: false,
+                    className: 'crisp-map'
+                }).addTo(map);
+                
+                // Fit map view to show the entire map with padding
+                map.fitBounds(bounds, {
+                    padding: [20, 20],
+                    maxZoom: 6
+                });
+                
+                console.log('Map displayed successfully with scheme:', currentColorScheme);
+                
+            } catch (error) {
+                console.error('Error in displayMap:', error);
+            }
+        }
+        
+        // Update map information display
+        function updateMapInfo(width, height, resolution, status) {
+            const mapInfo = document.getElementById('map-info');
+            const mapSize = document.getElementById('map-size');
+            const mapResolution = document.getElementById('map-resolution');
+            const mapUpdates = document.getElementById('map-updates');
+            const mapResizes = document.getElementById('map-resizes');
+            const mapStatus = document.getElementById('map-status');
+            
+            if (mapInfo && mapSize && mapResolution && mapStatus) {
+                mapInfo.style.display = 'block';
+                mapSize.textContent = `${width} × ${height}`;
+                mapResolution.textContent = `${resolution.toFixed(3)} m/pix`;
+                
+                if (mapUpdates) mapUpdates.textContent = mapUpdateCount;
+                if (mapResizes) mapResizes.textContent = mapResizeCount;
+                
+                if (status === 'initial') {
+                    mapStatus.textContent = '🆕 Initial map loaded';
+                    mapStatus.style.color = '#28a745';
+                } else if (status === 'resized') {
+                    mapStatus.textContent = '📏 Map expanded';
+                    mapStatus.style.color = '#007bff';
+                    // Reset status after 3 seconds
+                    setTimeout(() => {
+                        mapStatus.textContent = '✅ Active';
+                        mapStatus.style.color = '#28a745';
+                    }, 3000);
+                } else if (status === 'updated') {
+                    mapStatus.textContent = '🔄 Updated';
+                    mapStatus.style.color = '#ffc107';
+                    // Reset status after 1 second
+                    setTimeout(() => {
+                        mapStatus.textContent = '✅ Active';
+                        mapStatus.style.color = '#28a745';
+                    }, 1000);
+                } else {
+                    mapStatus.textContent = '✅ Active';
+                    mapStatus.style.color = '#28a745';
+                }
+            }
+        }        // Clear map display
+        function clearMap() {
+            if (window.mapImageOverlay) {
+                map.removeLayer(window.mapImageOverlay);
+                window.mapImageOverlay = null;
+                console.log('Map overlay cleared');
+            }
+            
+            // Hide map info when clearing
+            const mapInfo = document.getElementById('map-info');
+            if (mapInfo) {
+                mapInfo.style.display = 'none';
+            }
+            
+            // Reset map data and counters
+            mapData = null;
+            mapUpdateCount = 0;
+            mapResizeCount = 0;
+            
+            // Reset map view to origin
+            map.setView([0, 0], 2);
+            console.log('Map cleared');
+        }
+        
+        // Zoom to robot position
+        function zoomToRobot() {
+            if (robotMarker) {
+                const robotPos = robotMarker.getLatLng();
+                map.setView([robotPos.lat, robotPos.lng], 5);
+                console.log('Zoomed to robot position');
+            }
+        }
+        
+        // Fit map view to show entire map
+        function fitMapView() {
+            if (window.mapImageOverlay) {
+                map.fitBounds(window.mapImageOverlay.getBounds(), {
+                    padding: [20, 20],
+                    maxZoom: 6
+                });
+                console.log('Fitted map view');
+            }
+        }
+        
+        // Update map opacity
+        function updateMapOpacity(value) {
+            if (window.mapImageOverlay) {
+                window.mapImageOverlay.setOpacity(value);
+            }
+            document.getElementById('opacity-value').textContent = Math.round(value * 100) + '%';
+        }
+        
+        // Update color scheme
+        function updateColorScheme(scheme) {
+            try {
+                console.log('Color scheme change requested:', scheme);
+                
+                // Validate scheme exists
+                if (!colorSchemes[scheme]) {
+                    console.error('Invalid color scheme:', scheme);
+                    return;
+                }
+                
+                currentColorScheme = scheme;
+                console.log('Color scheme changed to:', scheme);
+                console.log('Selected scheme colors:', colorSchemes[scheme]);
+                
+                // Add a small delay before redrawing to prevent crashes
+                setTimeout(() => {
+                    if (mapData) {
+                        console.log('Redrawing map with new color scheme...');
+                        displayMap(mapData);
+                    } else {
+                        console.log('No map data available to redraw');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error in updateColorScheme:', error);
+            }
+        }
+        
+        // Initialize everything when page loads
+        window.onload = function() {
+            initMap();
+            updateWaypointStats();
+            checkSystemServices(); // Check system services status
+            refreshLaunchStatus();
+            
+            // Setup joystick immediately on page load (independent of ROS connection)
+            setTimeout(() => {
+                console.log('Setting up joystick on page load...');
+                setupJoystick();
+            }, 1000); // Longer delay to ensure DOM is fully ready
+            
+            console.log('ROS Web Map Viewer initialized with enhanced waypoint system and launch controls');
+        };
+        
+        // SLAM Launch Controls
+        function toggleSLAM() {
+            if (slamLaunched) {
+                stopSLAM();
+            } else {
+                startSLAM();
+            }
+        }
+        
+        function startSLAM() {
+            console.log('🗺️ Starting SLAM...');
+            updateSLAMStatus('launching', 'Launching...');
+            
+            // Set a timeout to prevent stuck "launching" state
+            const launchTimeout = setTimeout(() => {
+                console.log('⚠️ SLAM launch timeout - checking status...');
+                refreshLaunchStatus();
+            }, 10000); // 10 second timeout
+            
+            // Call ROS service to launch SLAM
+            const slamService = new ROSLIB.Service({
+                ros: ros,
+                name: '/launch_slam',
+                serviceType: 'std_srvs/SetBool'
+            });
+            
+            const request = new ROSLIB.ServiceRequest({
+                data: true
+            });
+            
+            slamService.callService(request, function(result) {
+                clearTimeout(launchTimeout); // Clear timeout on success
+                
+                if (result.success) {
+                    slamLaunched = true;
+                    updateSLAMStatus('running', 'SLAM Active');
+                    console.log('✅ SLAM launched successfully:', result.message);
+                    
+                    // Auto-subscribe to map when SLAM starts
+                    setTimeout(() => {
+                        if (!mapSubscribed) {
+                            subscribeToMap();
+                        }
+                        // Double-check status after a delay
+                        setTimeout(() => refreshLaunchStatus(), 3000);
+                    }, 3000);
+                } else {
+                    updateSLAMStatus('stopped', 'Launch Failed');
+                    console.error('❌ SLAM launch failed:', result.message);
+                    alert('Failed to launch SLAM: ' + result.message);
+                }
+            }, function(error) {
+                clearTimeout(launchTimeout); // Clear timeout on error
+                updateSLAMStatus('stopped', 'Service Error');
+                console.error('❌ SLAM service error:', error);
+                alert('SLAM service error. Make sure launch_service_node is running.');
+                
+                // Auto-refresh status to check if anything actually started
+                setTimeout(() => refreshLaunchStatus(), 2000);
+            });
+        }
+        
+        function stopSLAM() {
+            console.log('🛑 Stopping SLAM...');
+            updateSLAMStatus('stopping', 'Stopping...');
+            
+            const slamService = new ROSLIB.Service({
+                ros: ros,
+                name: '/launch_slam',
+                serviceType: 'std_srvs/SetBool'
+            });
+            
+            const request = new ROSLIB.ServiceRequest({
+                data: false
+            });
+            
+            slamService.callService(request, function(result) {
+                slamLaunched = false;
+                updateSLAMStatus('stopped', 'Not Running');
+                console.log('✅ SLAM stopped:', result.message);
+            }, function(error) {
+                console.error('❌ SLAM stop error:', error);
+            });
+        }
+        
+        // Navigation Launch Controls
+        function toggleNavigation() {
+            if (navigationLaunched) {
+                stopNavigation();
+            } else {
+                startNavigation();
+            }
+        }
+        
+        function startNavigation() {
+            console.log('🧭 Starting Navigation...');
+            updateNavigationStatus('launching', 'Launching...');
+            
+            const navService = new ROSLIB.Service({
+                ros: ros,
+                name: '/launch_navigation',
+                serviceType: 'std_srvs/SetBool'
+            });
+            
+            const request = new ROSLIB.ServiceRequest({
+                data: true
+            });
+            
+            navService.callService(request, function(result) {
+                if (result.success) {
+                    navigationLaunched = true;
+                    updateNavigationStatus('running', 'Navigation Active');
+                    console.log('✅ Navigation launched successfully:', result.message);
+                } else {
+                    updateNavigationStatus('stopped', 'Launch Failed');
+                    console.error('❌ Navigation launch failed:', result.message);
+                    alert('Failed to launch Navigation: ' + result.message);
+                }
+            }, function(error) {
+                updateNavigationStatus('stopped', 'Service Error');
+                console.error('❌ Navigation service error:', error);
+                alert('Navigation service error. Make sure launch_service_node is running.');
+            });
+        }
+        
+        function stopNavigation() {
+            console.log('🛑 Stopping Navigation...');
+            updateNavigationStatus('stopping', 'Stopping...');
+            
+            const navService = new ROSLIB.Service({
+                ros: ros,
+                name: '/launch_navigation',
+                serviceType: 'std_srvs/SetBool'
+            });
+            
+            const request = new ROSLIB.ServiceRequest({
+                data: false
+            });
+            
+            navService.callService(request, function(result) {
+                navigationLaunched = false;
+                updateNavigationStatus('stopped', 'Not Running');
+                console.log('✅ Navigation stopped:', result.message);
+            }, function(error) {
+                console.error('❌ Navigation stop error:', error);
+            });
+        }
+        
+        // Execute ROS launch command (simplified version)
+        function executeROSLaunchCommand(processName, command) {
+            console.log(`Executing: ${command}`);
+            
+            // In a real implementation, you would need one of these approaches:
+            
+            // Option 1: Custom ROS service that executes shell commands
+            if (ros && ros.isConnected) {
+                const execService = new ROSLIB.Service({
+                    ros: ros,
+                    name: '/execute_command',
+                    serviceType: 'std_srvs/srv/SetBool' // Would need custom service type
+                });
+                
+                // This would require a custom ROS node that provides this service
+                console.log('Would call ROS service to execute:', command);
+            }
+            
+            // Option 2: HTTP request to a simple web server on the robot
+            // fetch('/api/launch', {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({ command: command, process: processName })
+            // }).then(response => response.json())
+            //   .then(data => console.log('Launch result:', data));
+            
+            // Option 3: WebSocket command (if implemented in rosbridge)
+            // This is the most direct approach but requires custom rosbridge extensions
+            
+            console.log(`📝 Command logged for ${processName}: ${command}`);
+        }
+        
+        function executeROSKillCommand(processName) {
+            const killCommand = `pkill -f "${processName}"`;
+            console.log(`Executing kill command: ${killCommand}`);
+            
+            // Same approaches as above would apply for kill commands
+            console.log(`📝 Kill command logged for ${processName}: ${killCommand}`);
+        }
+        
+        // Update status functions
+        function updateSLAMStatus(state, message, details = null) {
+            const button = document.getElementById('slam-btn');
+            const statusText = document.getElementById('slam-status-text');
+            const buttonText = document.getElementById('slam-text');
+            const detailsDiv = document.getElementById('slam-details');
+            
+            statusText.textContent = message;
+            
+            switch(state) {
+                case 'running':
+                    button.className = 'nav-button active';
+                    buttonText.textContent = '🛑 Stop SLAM';
+                    statusText.style.color = '#28a745';
+                    button.disabled = false;
+                    
+                    // Show detailed info
+                    if (details) {
+                        detailsDiv.style.display = 'block';
+                        document.getElementById('slam-nodes').textContent = details.nodes || 'slam_toolbox';
+                        document.getElementById('slam-topics').textContent = details.topics || '/map, /slam_toolbox/*';
+                    }
+                    break;
+                case 'stopped':
+                    button.className = 'nav-button';
+                    buttonText.textContent = '🗺️ Launch SLAM';
+                    statusText.style.color = '#dc3545';
+                    detailsDiv.style.display = 'none';
+                    button.disabled = false;
+                    break;
+                case 'launching':
+                    button.disabled = true;
+                    statusText.style.color = '#ffc107';
+                    buttonText.textContent = '⏳ Launching...';
+                    
+                    // Auto-timeout after 15 seconds
+                    setTimeout(() => {
+                        if (statusText.textContent === 'Launching...') {
+                            console.log('⚠️ SLAM launch timeout - forcing status check');
+                            button.disabled = false;
+                            refreshLaunchStatus();
+                        }
+                    }, 15000);
+                    break;
+                case 'stopping':
+                    button.disabled = true;
+                    statusText.style.color = '#ffc107';
+                    buttonText.textContent = '⏳ Stopping...';
+                    
+                    // Auto-timeout after 10 seconds
+                    setTimeout(() => {
+                        if (statusText.textContent === 'Stopping...') {
+                            console.log('⚠️ SLAM stop timeout - forcing status check');
+                            button.disabled = false;
+                            refreshLaunchStatus();
+                        }
+                    }, 10000);
+                    break;
+            }
+        }
+        
+        function updateNavigationStatus(state, message, details = null) {
+            const button = document.getElementById('nav-launch-btn');
+            const statusText = document.getElementById('nav-launch-status-text');
+            const buttonText = document.getElementById('nav-launch-text');
+            const detailsDiv = document.getElementById('nav-details');
+            
+            statusText.textContent = message;
+            
+            switch(state) {
+                case 'running':
+                    button.className = 'nav-button active';
+                    buttonText.textContent = '🛑 Stop Navigation';
+                    statusText.style.color = '#28a745';
+                    
+                    // Show detailed info
+                    if (details) {
+                        detailsDiv.style.display = 'block';
+                        document.getElementById('nav-nodes').textContent = details.nodes || 'nav2 stack';
+                        document.getElementById('nav-topics').textContent = details.topics || '/cmd_vel, /plan, /path';
+                    }
+                    break;
+                case 'stopped':
+                    button.className = 'nav-button';
+                    buttonText.textContent = '🧭 Launch Navigation';
+                    statusText.style.color = '#dc3545';
+                    detailsDiv.style.display = 'none';
+                    break;
+                case 'launching':
+                case 'stopping':
+                    button.disabled = true;
+                    statusText.style.color = '#ffc107';
+                    setTimeout(() => { 
+                        button.disabled = false;
+                        // Auto-refresh status after operation
+                        refreshLaunchStatus();
+                    }, 3000);
+                    break;
+            }
+        }
+        
+        // Kill all launch processes
+        function killAllLaunches() {
+            if (confirm('⚠️ This will stop ALL ROS launch processes. Continue?')) {
+                console.log('🛑 Killing all launch processes...');
+                
+                if (slamLaunched) stopSLAM();
+                if (navigationLaunched) stopNavigation();
+                
+                // Execute broad kill commands
+                executeROSKillCommand('slam');
+                executeROSKillCommand('navigation');
+                executeROSKillCommand('nav2');
+                executeROSKillCommand('slam_toolbox');
+                
+                setTimeout(() => {
+                    refreshLaunchStatus();
+                    alert('✅ All launch processes killed');
+                }, 2000);
+            }
+        }
+        
+        // Refresh launch status by checking running processes
+        function refreshLaunchStatus() {
+            console.log('🔄 Refreshing launch status...');
+            
+            if (!ros || !ros.isConnected) {
+                console.log('❌ ROS not connected - cannot check status');
+                return;
+            }
+            
+            // Check SLAM status by looking for slam_toolbox node
+            checkNodeStatus('/slam_toolbox', function(isRunning) {
+                slamLaunched = isRunning;
+                updateSLAMStatus(isRunning ? 'running' : 'stopped', 
+                               isRunning ? 'SLAM Active (slam_toolbox)' : 'Not Running');
+                console.log('SLAM status:', isRunning ? 'Running' : 'Stopped');
+            });
+            
+            // Check Navigation status by looking for common nav2 nodes
+            checkNodeStatus('/controller_server', function(isRunning) {
+                navigationLaunched = isRunning;
+                updateNavigationStatus(isRunning ? 'running' : 'stopped', 
+                                     isRunning ? 'Navigation Active (nav2)' : 'Not Running');
+                console.log('Navigation status:', isRunning ? 'Running' : 'Stopped');
+            });
+        }
+        
+        // Check if a specific ROS node is running
+        function checkNodeStatus(nodeName, callback) {
+            try {
+                const nodeService = new ROSLIB.Service({
+                    ros: ros,
+                    name: '/rosapi/nodes',
+                    serviceType: 'rosapi/GetNodes'
+                });
+                
+                const request = new ROSLIB.ServiceRequest();
+                
+                nodeService.callService(request, function(result) {
+                    const isRunning = result.nodes.includes(nodeName);
+                    callback(isRunning);
+                }, function(error) {
+                    console.error('Error checking node status:', error);
+                    // Try alternative method - check topics
+                    checkTopicStatus(nodeName, callback);
+                });
+            } catch (error) {
+                console.error('Node status check failed:', error);
+                callback(false);
+            }
+        }
+        
+        // Alternative method: Check if node-specific topics exist
+        function checkTopicStatus(nodeName, callback) {
+            const topicService = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/topics',
+                serviceType: 'rosapi/GetTopics'
+            });
+            
+            const request = new ROSLIB.ServiceRequest();
+            
+            topicService.callService(request, function(result) {
+                let isRunning = false;
+                
+                // Check for node-specific topics
+                if (nodeName === '/slam_toolbox') {
+                    isRunning = result.topics.some(topic => 
+                        topic.includes('slam_toolbox') || topic === '/map'
+                    );
+                } else if (nodeName === '/controller_server') {
+                    isRunning = result.topics.some(topic => 
+                        topic.includes('controller_server') || 
+                        topic.includes('planner_server') ||
+                        topic.includes('nav2')
+                    );
+                }
+                
+                callback(isRunning);
+            }, function(error) {
+                console.error('Topic status check failed:', error);
+                callback(false);
+            });
+        }
+        
+        // Force reset stuck status
+        function forceResetStatus() {
+            console.log('🔧 Force resetting all status indicators...');
+            
+            // Reset button states
+            document.getElementById('slam-btn').disabled = false;
+            document.getElementById('nav-launch-btn').disabled = false;
+            
+            // Reset to default states
+            slamLaunched = false;
+            navigationLaunched = false;
+            
+            updateSLAMStatus('stopped', 'Status Reset');
+            updateNavigationStatus('stopped', 'Status Reset');
+            
+            // Immediately check real status
+            setTimeout(() => {
+                refreshLaunchStatus();
+            }, 500);
+            
+            console.log('✅ Status reset complete');
+        }
+        
+        // Show detailed ROS system information
+        function showSystemInfo() {
+            const systemInfoDiv = document.getElementById('system-info');
+            
+            if (systemInfoDiv.style.display === 'none') {
+                systemInfoDiv.style.display = 'block';
+                loadSystemInfo();
+            } else {
+                systemInfoDiv.style.display = 'none';
+            }
+        }
+        
+        function loadSystemInfo() {
+            if (!ros || !ros.isConnected) {
+                document.getElementById('active-nodes').textContent = 'ROS not connected';
+                return;
+            }
+            
+            // Get nodes
+            const nodeService = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/nodes',
+                serviceType: 'rosapi/GetNodes'
+            });
+            
+            nodeService.callService(new ROSLIB.ServiceRequest(), function(result) {
+                document.getElementById('node-count').textContent = result.nodes.length;
+                
+                // Filter and display important nodes
+                const importantNodes = result.nodes.filter(node => 
+                    node.includes('slam') || 
+                    node.includes('nav') || 
+                    node.includes('controller') ||
+                    node.includes('planner') ||
+                    node.includes('rosbridge') ||
+                    node.includes('launch_service')
+                );
+                
+                document.getElementById('active-nodes').innerHTML = 
+                    importantNodes.length > 0 ? 
+                    importantNodes.map(node => `<div>• ${node}</div>`).join('') :
+                    '<div style="color: #666;">No navigation/SLAM nodes detected</div>';
+                    
+            }, function(error) {
+                document.getElementById('active-nodes').textContent = 'Error loading nodes';
+            });
+            
+            // Get topics
+            const topicService = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/topics',
+                serviceType: 'rosapi/GetTopics'
+            });
+            
+            topicService.callService(new ROSLIB.ServiceRequest(), function(result) {
+                document.getElementById('topic-count').textContent = result.topics.length;
+            }, function(error) {
+                document.getElementById('topic-count').textContent = 'Error';
+            });
+            
+            // Get services
+            const serviceService = new ROSLIB.Service({
+                ros: ros,
+                name: '/rosapi/services',
+                serviceType: 'rosapi/GetServices'
+            });
+            
+            serviceService.callService(new ROSLIB.ServiceRequest(), function(result) {
+                document.getElementById('service-count').textContent = result.services.length;
+            }, function(error) {
+                document.getElementById('service-count').textContent = 'Error';
+            });
+        }
+        
+        // ----- Supermarket Item Search and Navigation Functions -----
+        
+        // Initialize supermarket items by fetching from server
+        function initializeSupermarketItems() {
+            // Show loading state
+            const itemList = document.getElementById('item-list');
+            itemList.innerHTML = '<div class="item-entry">Loading items from server...</div>';
+            
+            // Fetch items from server
+            fetch('/get_items')
+                .then(response => response.json())
+                .then(data => {
+                    supermarketItems = data;
+                    populateItemList();
+                })
+                .catch(error => {
+                    console.error('Error fetching items:', error);
+                    itemList.innerHTML = `<div class="item-entry" style="color: red;">Error loading items: ${error.message}</div>`;
+                });
+            
+            // Add event listener for the search box
+            document.getElementById('item-search').addEventListener('input', function() {
+                populateItemList(this.value);
+            });
+        }
+        
+        // Populate the item list with filterable items
+        function populateItemList(searchTerm = '') {
+            const itemList = document.getElementById('item-list');
+            itemList.innerHTML = '';
+            
+            // Filter items based on search term
+            const filteredItems = supermarketItems.filter(item => 
+                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.section.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            if (filteredItems.length === 0) {
+                itemList.innerHTML = `<div class="item-entry" style="color: #666; font-style: italic;">No items found for "${searchTerm}"</div>`;
+                return;
+            }
+            
+            // Sort items alphabetically
+            filteredItems.sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Create item entries
+            filteredItems.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item-entry';
+                itemDiv.dataset.id = item.id;
+                
+                // Check if this item is already selected
+                const isSelected = selectedItems.some(selected => selected.id === item.id);
+                if (isSelected) {
+                    itemDiv.classList.add('selected');
+                }
+                
+                itemDiv.innerHTML = `
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-section">${item.section}</span>
+                `;
+                
+                // Add click event to select/deselect item
+                itemDiv.addEventListener('click', function() {
+                    toggleItemSelection(item);
+                    this.classList.toggle('selected');
+                });
+                
+                itemList.appendChild(itemDiv);
+            });
+        }
+        
+        // Toggle selection of an item
+        function toggleItemSelection(item) {
+            const index = selectedItems.findIndex(selected => selected.id === item.id);
+            
+            if (index === -1) {
+                // Add item to selected items
+                selectedItems.push(item);
+            } else {
+                // Remove item from selected items
+                selectedItems.splice(index, 1);
+            }
+            
+            // Update the selected items list
+            updateSelectedItemsList();
+        }
+        
+        // Update the selected items list display
+        function updateSelectedItemsList() {
+            const selectedItemsList = document.getElementById('selected-items-list');
+            selectedItemsList.innerHTML = '';
+            
+            if (selectedItems.length === 0) {
+                selectedItemsList.innerHTML = `<div class="selected-item" style="color: #666; font-style: italic;">No items selected</div>`;
+                return;
+            }
+            
+            selectedItems.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'selected-item';
+                
+                itemDiv.innerHTML = `
+                    <span>${index + 1}. ${item.name} (${item.section})</span>
+                    <button class="remove-item" data-id="${item.id}">×</button>
+                `;
+                
+                selectedItemsList.appendChild(itemDiv);
+            });
+            
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const itemId = parseInt(this.dataset.id);
+                    removeSelectedItem(itemId);
+                });
+            });
+        }
+        
+        // Remove an item from the selected items
+        function removeSelectedItem(itemId) {
+            const index = selectedItems.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                selectedItems.splice(index, 1);
+                updateSelectedItemsList();
+                populateItemList(document.getElementById('item-search').value);
+            }
+        }
+        
+        // Clear all selected items
+        function clearSelectedItems() {
+            selectedItems = [];
+            updateSelectedItemsList();
+            populateItemList(document.getElementById('item-search').value);
+            
+            // Clear item markers from the map
+            clearItemMarkers();
+        }
+        
+        // Toggle item admin panel
+        function toggleItemAdmin() {
+            const adminForm = document.getElementById('item-admin-form');
+            const adminToggle = document.querySelector('.admin-toggle');
+            
+            if (adminForm.style.display === 'block') {
+                adminForm.style.display = 'none';
+                adminToggle.textContent = '+ Item Management (Admin)';
+            } else {
+                adminForm.style.display = 'block';
+                adminToggle.textContent = '- Item Management (Admin)';
+                
+                // Clear form
+                document.getElementById('item-name').value = '';
+                document.getElementById('item-section').value = '';
+                document.getElementById('item-x').value = '';
+                document.getElementById('item-y').value = '';
+            }
+        }
+        
+        // Save a new item or update an existing one
+        function saveItem() {
+            const name = document.getElementById('item-name').value.trim();
+            const section = document.getElementById('item-section').value.trim();
+            const x = parseFloat(document.getElementById('item-x').value);
+            const y = parseFloat(document.getElementById('item-y').value);
+            
+            if (!name || isNaN(x) || isNaN(y)) {
+                alert('Please enter a valid item name and coordinates.');
+                return;
+            }
+            
+            // Disable form while saving
+            document.querySelectorAll('#item-admin-form input, #item-admin-form button').forEach(el => {
+                el.disabled = true;
+            });
+            
+            // Create item data
+            const itemData = {
+                name: name,
+                section: section,
+                x: x,
+                y: y
+            };
+            
+            // Send to server
+            fetch('/save_item', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(itemData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Refresh item list from server
+                    fetch('/get_items')
+                        .then(response => response.json())
+                        .then(data => {
+                            supermarketItems = data;
+                            populateItemList(document.getElementById('item-search').value);
+                            
+                            // Clear form
+                            document.getElementById('item-name').value = '';
+                            document.getElementById('item-section').value = '';
+                            document.getElementById('item-x').value = '';
+                            document.getElementById('item-y').value = '';
+                            
+                            alert(`Item "${name}" has been ${result.action}.`);
+                        });
+                } else {
+                    alert(`Error: ${result.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving item:', error);
+                alert(`Error saving item: ${error.message}`);
+            })
+            .finally(() => {
+                // Re-enable form
+                document.querySelectorAll('#item-admin-form input, #item-admin-form button').forEach(el => {
+                    el.disabled = false;
+                });
+            });
+        }
+        
+        // Delete an item
+        function deleteItem() {
+            const name = document.getElementById('item-name').value.trim();
+            
+            if (!name) {
+                alert('Please enter the name of the item to delete.');
+                return;
+            }
+            
+            const existingItem = supermarketItems.find(item => 
+                item.name.toLowerCase() === name.toLowerCase()
+            );
+            
+            if (!existingItem) {
+                alert(`Item "${name}" not found.`);
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to delete "${name}"?`)) {
+                // Disable form while deleting
+                document.querySelectorAll('#item-admin-form input, #item-admin-form button').forEach(el => {
+                    el.disabled = true;
+                });
+                
+                // Send delete request to server
+                fetch('/delete_item', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: name })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Also remove from selectedItems if present
+                        const selectedIndex = selectedItems.findIndex(item => 
+                            item.name.toLowerCase() === name.toLowerCase()
+                        );
+                        
+                        if (selectedIndex !== -1) {
+                            selectedItems.splice(selectedIndex, 1);
+                            updateSelectedItemsList();
+                        }
+                        
+                        // Refresh item list from server
+                        fetch('/get_items')
+                            .then(response => response.json())
+                            .then(data => {
+                                supermarketItems = data;
+                                populateItemList(document.getElementById('item-search').value);
+                                
+                                // Clear form
+                                document.getElementById('item-name').value = '';
+                                document.getElementById('item-section').value = '';
+                                document.getElementById('item-x').value = '';
+                                document.getElementById('item-y').value = '';
+                                
+                                alert(`Item "${name}" has been deleted.`);
+                            });
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting item:', error);
+                    alert(`Error deleting item: ${error.message}`);
+                })
+                .finally(() => {
+                    // Re-enable form
+                    document.querySelectorAll('#item-admin-form input, #item-admin-form button').forEach(el => {
+                        el.disabled = false;
+                    });
+                });
+            }
+        }
+        
+        // Clear item markers from the map
+        function clearItemMarkers() {
+            if (itemMarkers.length > 0) {
+                itemMarkers.forEach(marker => {
+                    map.removeLayer(marker);
+                });
+                itemMarkers = [];
+            }
+        }
+        
+        // Show item markers on the map
+        function showItemMarkers() {
+            // Clear existing markers first
+            clearItemMarkers();
+            
+            if (selectedItems.length === 0) return;
+            
+            // Get robot position for calculating distances
+            let robotPosition = null;
+            if (robotMarker) {
+                robotPosition = robotMarker.getLatLng();
+            }
+            
+            // Sort items by distance from robot (if robot position is available)
+            // This will be used for the optimized navigation path
+            const sortedItems = [...selectedItems];
+            if (robotPosition) {
+                sortedItems.sort((a, b) => {
+                    const distA = map.distance(
+                        robotPosition, 
+                        map.unproject([a.x, a.y], map.getMaxZoom())
+                    );
+                    const distB = map.distance(
+                        robotPosition, 
+                        map.unproject([b.x, b.y], map.getMaxZoom())
+                    );
+                    return distA - distB;
+                });
+            }
+            
+            // Create markers for each item
+            sortedItems.forEach((item, index) => {
+                const markerLatLng = map.unproject([item.x, item.y], map.getMaxZoom());
+                
+                // Create custom marker
+                const marker = L.marker(markerLatLng, {
+                    icon: L.divIcon({
+                        className: 'custom-item-marker',
+                        html: `<div style="background-color: ${index === 0 ? '#ff4500' : '#007bff'}; 
+                                        color: white; 
+                                        border-radius: 50%;
+                                        width: 24px;
+                                        height: 24px;
+                                        text-align: center;
+                                        line-height: 24px;
+                                        font-weight: bold;
+                                        border: 2px solid white;
+                                        box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                        ${index + 1}</div>`,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    })
+                }).addTo(map);
+                
+                // Add a popup
+                marker.bindPopup(`
+                    <strong>${item.name}</strong><br>
+                    Section: ${item.section}<br>
+                    Coordinates: (${item.x.toFixed(2)}, ${item.y.toFixed(2)})
+                `);
+                
+                itemMarkers.push(marker);
+                
+                // If this is the first item, open its popup
+                if (index === 0) {
+                    marker.openPopup();
+                }
+            });
+            
+            // Update the order of selected items to match the optimized path
+            selectedItems = sortedItems;
+            updateSelectedItemsList();
+        }
+        
+        // Navigate to selected items in the optimal order
+        function navigateToSelectedItems() {
+            if (selectedItems.length === 0) {
+                alert('Please select at least one item to navigate to.');
+                return;
+            }
+            
+            // Show item markers on the map
+            showItemMarkers();
+            
+            // Start with the first item
+            currentItemIndex = 0;
+            isNavigatingItems = true;
+            
+            // Send navigation goal to the first item
+            navigateToCurrentItem();
+        }
+        
+        // Navigate to the current item in the sequence
+        function navigateToCurrentItem() {
+            if (currentItemIndex < 0 || currentItemIndex >= selectedItems.length) {
+                return;
+            }
+            
+            const item = selectedItems[currentItemIndex];
+            
+            // Create a goal message
+            const goal = new ROSLIB.Message({
+                header: {
+                    frame_id: 'map',
+                    stamp: {
+                        secs: Math.floor(Date.now() / 1000),
+                        nsecs: (Date.now() % 1000) * 1000000
+                    }
+                },
+                pose: {
+                    position: {
+                        x: item.x,
+                        y: item.y,
+                        z: 0.0
+                    },
+                    orientation: {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        w: 1.0
+                    }
+                }
+            });
+            
+            // Send the goal
+            goalPublisher.publish(goal);
+            
+            // Update robot status
+            document.getElementById('robot-status').textContent = `Navigating to ${item.name}`;
+            
+            // Listen for result
+            // This is simplified - in a real implementation, you would listen for move_base/result topic
+            // and check if the goal was reached
+            const checkGoalInterval = setInterval(() => {
+                if (robotMarker) {
+                    const robotPos = robotMarker.getLatLng();
+                    const itemPos = map.unproject([item.x, item.y], map.getMaxZoom());
+                    
+                    // Calculate distance between robot and item
+                    const distance = map.distance(robotPos, itemPos);
+                    
+                    // If robot is close enough to the item
+                    if (distance < 0.5) { // 0.5 meters threshold
+                        clearInterval(checkGoalInterval);
+                        
+                        // Move to next item if available
+                        currentItemIndex++;
+                        
+                        if (currentItemIndex < selectedItems.length) {
+                            // Highlight the next marker
+                            if (itemMarkers[currentItemIndex - 1]) {
+                                map.removeLayer(itemMarkers[currentItemIndex - 1]);
+                                
+                                const prevItem = selectedItems[currentItemIndex - 1];
+                                const markerLatLng = map.unproject([prevItem.x, prevItem.y], map.getMaxZoom());
+                                
+                                // Create custom marker with "visited" style
+                                const marker = L.marker(markerLatLng, {
+                                    icon: L.divIcon({
+                                        className: 'custom-item-marker',
+                                        html: `<div style="background-color: #28a745; 
+                                                        color: white; 
+                                                        border-radius: 50%;
+                                                        width: 24px;
+                                                        height: 24px;
+                                                        text-align: center;
+                                                        line-height: 24px;
+                                                        font-weight: bold;
+                                                        border: 2px solid white;
+                                                        box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                                        ✓</div>`,
+                                        iconSize: [28, 28],
+                                        iconAnchor: [14, 14]
+                                    })
+                                }).addTo(map);
+                                
+                                itemMarkers[currentItemIndex - 1] = marker;
+                            }
+                            
+                            // Open popup for the current item
+                            if (itemMarkers[currentItemIndex]) {
+                                itemMarkers[currentItemIndex].openPopup();
+                            }
+                            
+                            // Navigate to the next item
+                            setTimeout(() => {
+                                navigateToCurrentItem();
+                            }, 1000);
+                        } else {
+                            // All items have been visited
+                            isNavigatingItems = false;
+                            document.getElementById('robot-status').textContent = 'Navigation complete';
+                            
+                            // Mark the last item as visited
+                            if (itemMarkers[currentItemIndex - 1]) {
+                                map.removeLayer(itemMarkers[currentItemIndex - 1]);
+                                
+                                const lastItem = selectedItems[currentItemIndex - 1];
+                                const markerLatLng = map.unproject([lastItem.x, lastItem.y], map.getMaxZoom());
+                                
+                                // Create custom marker with "visited" style
+                                const marker = L.marker(markerLatLng, {
+                                    icon: L.divIcon({
+                                        className: 'custom-item-marker',
+                                        html: `<div style="background-color: #28a745; 
+                                                        color: white; 
+                                                        border-radius: 50%;
+                                                        width: 24px;
+                                                        height: 24px;
+                                                        text-align: center;
+                                                        line-height: 24px;
+                                                        font-weight: bold;
+                                                        border: 2px solid white;
+                                                        box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                                        ✓</div>`,
+                                        iconSize: [28, 28],
+                                        iconAnchor: [14, 14]
+                                    })
+                                }).addTo(map);
+                                
+                                itemMarkers[currentItemIndex - 1] = marker;
+                            }
+                        }
+                    }
+                }
+            }, 1000);
+        }
+        
+        // Initialize everything after ROS connection
+        function onRosConnect() {
+            console.log('Connected to ROS');
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').style.color = '#4CAF50';
+            document.getElementById('ros-connect-btn').style.backgroundColor = '#dc3545';
+            document.getElementById('ros-connect-text').textContent = '🔌 Disconnect';
+            
+            setupROSTopics();
+            initializeMap();
+            initializeLaserScan();
+            initializeJoystick();
+            initializeSupermarketItems(); // Initialize supermarket items
+            
+            // Update launch statuses
+            refreshLaunchStatus();
+        }
+    </script>
+</body>
+</html>

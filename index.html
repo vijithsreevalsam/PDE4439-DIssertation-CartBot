@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS Web Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
+     
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .connection-form {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .joystick-container {
+            width: 200px;
+            height: 200px;
+            background-color: #ddd;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        
+
+
+        .position-display {
+            width: 200px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+
+        .cmd_vel-display {
+            width: 200px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="connection-form">
+        <input type="text" id="rosbridge-address" value="ws://localhost:9090">
+        <button onclick="connectToROS()">Connect</button>
+        <div id="connection-status" style="margin-top: 10px; padding: 10px; border-radius: 5px; display: none;"></div>
+    </div>
+    <div class="dashboard">
+        <div class="joystick-container" id="joystick"></div>
+        <div class="cmd_vel-display">
+            <h3>Cmd Vel</h3>
+            <p>Linear : <span id="cmdvel-l">0</span></p>
+            <p>Angular : <span id="cmdvel-a">0</span></p>
+            <p><small>Status: <span id="cmdvel-status">Not connected</span></small></p>
+            <p><small>Last command: <span id="last-cmd">None</span></small></p>
+        </div>
+        <div class="position-display">
+            <h3>Position</h3>
+            <p>X: <span id="position-x">0</span></p>
+            <p>Y: <span id="position-y">0</span></p>
+            <p><small>Status: <span id="odom-status">Not connected</span></small></p>
+            <p><small>Last update: <span id="last-update">Never</span></small></p>
+        </div>
+    </div>
+
+    <script>
+        let ros;
+        // let ros;
+        let cmdVelTopic; 
+        let joystick;
+
+        function connectToROS() {
+            const rosbridgeAddress = document.getElementById('rosbridge-address').value;
+            const statusDiv = document.getElementById('connection-status');
+            
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = 'Connecting to ' + rosbridgeAddress + '...';
+            statusDiv.style.backgroundColor = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            
+            ros = new ROSLIB.Ros({
+                url: rosbridgeAddress
+            });
+
+            ros.on('connection', function () {
+                console.log('Connected to rosbridge server.');
+                statusDiv.innerHTML = '✅ Connected to ROS Bridge';
+                statusDiv.style.backgroundColor = '#d4edda';
+                statusDiv.style.color = '#155724';
+                setupTopics();
+            });
+
+            ros.on('error', function (error) {
+                console.error('Error connecting to rosbridge server:', error);
+                statusDiv.innerHTML = '❌ Connection Error: ' + error;
+                statusDiv.style.backgroundColor = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+            });
+
+            ros.on('close', function () {
+                console.log('Connection to rosbridge server closed.');
+                statusDiv.innerHTML = '⚠️ Connection Closed';
+                statusDiv.style.backgroundColor = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                document.getElementById('odom-status').textContent = 'Disconnected';
+            });
+        }
+        setupJoystick();
+
+        function setupTopics() {
+            console.log('Setting up topics...');
+            document.getElementById('odom-status').textContent = 'Subscribing...';
+            
+            // Set up odometry topic
+            const odomTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/odom',
+                messageType: 'nav_msgs/Odometry'
+            });
+            // Set up cmd_vel topic
+            cmdVelTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/cmd_vel',
+                messageType: 'geometry_msgs/Twist'
+            });
+            // const cmdVelTopic_S = new ROSLIB.Topic({
+            //     ros: ros,
+            //     name: '/cmd_vel',
+            //     messageType: 'geometry_msgs/Twist'
+            // });
+
+            odomTopic.subscribe(function (message) {
+                console.log('Received odom message:', message);
+                
+                // Update position display
+                const x = message.pose.pose.position.x;
+                const y = message.pose.pose.position.y;
+                
+                document.getElementById('position-x').textContent = x.toFixed(3);//to fixed means 3 decimal places
+                document.getElementById('position-y').textContent = y.toFixed(3);
+                document.getElementById('odom-status').textContent = 'Receiving data';
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            });
+
+            // Add error handling for the topic
+            odomTopic.on('error', function(error) {
+                console.error('Odom topic error:', error);
+                document.getElementById('odom-status').textContent = 'Topic Error';
+            });
+
+            console.log('Odometry topic subscription set up');
+
+
+            cmdVelTopic.subscribe(function (message){
+                console.log('Received cmd_vel message:', message);
+                const linear = message.linear.x;
+                const angular = message.angular.z;
+
+                document.getElementById('cmdvel-l').textContent = linear.toFixed(3);
+                document.getElementById('cmdvel-a').textContent = angular.toFixed(3);
+                document.getElementById('cmdvel-status').textContent = 'Receiving data';
+                document.getElementById('last-cmd').textContent = new Date().toLocaleTimeString();
+            });
+            cmdVelTopic.on('error', function(error) {
+                console.error('Cmd Vel topic error:', error);
+                document.getElementById('cmdvel-status').textContent = 'Topic Error';
+            });
+            console.log('Cmd Vel topic subscription set up');
+
+
+        }
+        // Joystick setup
+        function setupJoystick() {
+            const options = {
+                zone: document.getElementById('joystick'),
+                mode: 'static',
+                position: {left: '50%', top: '50%'},
+                color: 'blue',
+                size: 150
+            };
+
+            joystick = nipplejs.create(options);
+
+            joystick.on('move', function (evt, data) {
+                const maxSpeed = 1.0; // m/s
+                const maxTurn = 1.0; // rad/s
+
+                const linear = Math.sin(data.angle.radian) * maxSpeed * data.distance / 75;
+                const angular = -Math.cos(data.angle.radian) * maxTurn * data.distance / 75;
+
+                const twist = new ROSLIB.Message({
+                    linear: {x: linear, y: 0, z: 0},
+                    angular: {x: 0, y: 0, z: angular}
+                });
+
+                cmdVelTopic.publish(twist);
+            });
+
+            joystick.on('end', function () {
+                const twist = new ROSLIB.Message({
+                    linear: {x: 0, y: 0, z: 0},
+                    angular: {x: 0, y: 0, z: 0}
+                });
+
+                cmdVelTopic.publish(twist);
+            });
+        }
+
+
+
+    </script>
+</body>
+
+</html>
