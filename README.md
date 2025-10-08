@@ -46,18 +46,18 @@ CartBot is an autonomous supermarket trolley prototype developed as part of the 
 ### 🎛️ Control Interfaces
 - **PyQt5 Desktop GUI**: Comprehensive robot control with RViz integration
 - **Web-Based Interface**: Browser-based control for any device
-- **Voice Commands**: Natural language processing for navigation
+- **Voice Commands**: Speech to Text voice comands 
 - **Teleoperation**: Manual control with adjustable speed settings
 
 ### 🛡️ Safety & Monitoring
 - **Emergency Stop System**: Hardware and software-based safety stops
 - **Real-Time Monitoring**: Position, velocity, and system status
-- **Collision Detection**: Ultrasonic sensor integration
+- **Collision Detection**: Ultrasonic sensor integration - Future implementation
 - **Connection Management**: Robust ROS communication handling
 
 ### 🔧 Developer Tools
 - **Service Management**: Web-based ROS service control
-- **System Diagnostics**: Real-time node and topic monitoring
+- **System Diagnostics**: Real-time node and topic monitoring via Browser inspect window
 - **Debug Interfaces**: Comprehensive logging and error handling
 - **Modular Architecture**: Easy to extend and customize
 
@@ -95,22 +95,22 @@ CartBot is an autonomous supermarket trolley prototype developed as part of the 
 |-----------|-------|---------|
 | **Main Controller** | Teensy 4.1 | Micro-ROS firmware, sensor integration |
 | **LiDAR** | RPLiDAR S1 | 2D laser scanning for SLAM and navigation |
-| **IMU** | MPU6050/9250 | Orientation and motion sensing |
-| **Ultrasonic** | HC-SR04 | Collision detection and safety |
+| **IMU** | MPU9250 | Orientation and motion sensing |
+| **Ultrasonic** | HC-SR04 | Collision detection and safety -  Future implementation
 | **Motors** | Gear Motors + Encoders | Differential drive system |
-| **Computer** | Raspberry Pi/Jetson | ROS 2 stack, navigation processing |
-| **Audio** | USB Microphone | Voice command input |
+| **Computer** | Raspberry Pi - 5 | ROS 2 Jazzy stack|
+| **Audio** | Voice command input |
 
 ---
 
 ## 💻 Software Stack
 
 ### Core Technologies
-- **ROS 2 Humble**: Robot operating system
+- **ROS 2 Jazzy**: Robot operating system
 - **Nav2**: Navigation framework
 - **SLAM Toolbox**: Mapping and localization
 - **Micro-ROS**: Embedded ROS communication
-- **PyQt5**: Desktop GUI framework
+- **PyQt6**: Desktop GUI framework
 - **WebSocket**: Real-time web communication
 - **Vosk**: Offline speech recognition
 
@@ -121,7 +121,7 @@ cartBot/
 ├── cartBot_description/   # Robot model and URDF files
 ├── cartBot_navigation/    # Navigation configuration and launch
 ├── cartBot_bringup/       # System startup and configuration
-└── cartBot/               # Meta-package
+└── cartBot/               # package
 ```
 
 ---
@@ -173,20 +173,14 @@ cd ~/websocket_ws
 ## 📖 Usage
 
 ### 1. Hardware Setup
-```bash
-# Flash Teensy firmware
-cd ~/Downloads
-# Upload firmware.ino to Teensy 4.1 via Arduino IDE
-
-# Connect hardware components
-# - RPLiDAR S1 to USB
-# - Teensy 4.1 to USB  
-# - Ultrasonic sensors to Teensy pins
-# - Motors to motor driver
+#  
+Connection diagram can be found on the firmware branch
 ```
 
 ### 2. Launch Robot System
 ```bash
+environmental setup
+export cartBot_BASE=2wd
 # Terminal 1: Launch robot base
 ros2 launch cartBot_bringup bringup.launch.py madgwick:=true orientation_stddev:=0.01
 
@@ -259,15 +253,6 @@ PDE4439-DIssertation-CartBot/
 ├── 📄 map_viewer.html                 # Map visualization
 └── 📄 supermarket_viewer.html         # Product navigation
 
-~/ros_ws/                              # Development workspace
-├── 📁 src/linorobot2/                 # Base robot platform
-├── 📁 src/linorobot2_hardware/        # Hardware drivers
-└── 📁 maps/                           # Saved maps
-
-~/Downloads/                           # Firmware
-├── 📄 firmware.ino                    # Main Teensy firmware
-├── 📄 firmware_ultrasound.ino         # Sensor integration
-└── 📁 ultrasonic/                     # Sensor libraries
 ```
 
 ---
@@ -366,25 +351,12 @@ ros2 run rosbridge_server rosbridge_websocket
 
 ---
 
-## 🤝 Contributing
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-- Follow ROS 2 [coding standards](https://docs.ros.org/en/rolling/The-ROS2-Project/Contributing/Code-Style-Language-Versions.html)
-- Test all changes in simulation before hardware
-- Update documentation for new features
-- Add unit tests for critical components
 
 ---
 
 ## 📚 Documentation Links
 
-- [ROS 2 Humble Documentation](https://docs.ros.org/en/humble/)
+- [ROS 2 Jazzy Documentation](https://docs.ros.org/en/jazzy/)
 - [Nav2 Navigation Framework](https://navigation.ros.org/)
 - [Micro-ROS Documentation](https://micro.ros.org/)
 - [PyQt5 Documentation](https://doc.qt.io/qtforpython/)
@@ -400,7 +372,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 👥 Authors
 
-- **Vijith Sreevalsam** - *Lead Developer* - [vijithsreevalsam](https://github.com/vijithsreevalsam)
+- **Vijith Sreevalsam** - [vijithsreevalsam](https://github.com/vijithsreevalsam)
 
 ---
 
@@ -425,9 +397,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [x] Voice command integration
 - [x] Multi-interface control (GUI/Web/Voice)
 - [x] Safety systems and emergency stops
-- [x] Real-time monitoring and diagnostics
 - [x] Supermarket-specific waypoint system
-- [x] Hardware integration (LiDAR, IMU, Ultrasonic)
+- [x] Hardware integration (LiDAR, IMU)
 - [x] Comprehensive documentation
 
 ### Future Enhancements 🚀
