@@ -68,9 +68,9 @@ A comprehensive Python-based robot control interface with RViz integration for t
    cd /home/viju/UI
    ```
 
-2. **Make launch script executable**
+2. **Make launch python script executable**
    ```bash
-   chmod +x launch_ui.sh
+   chmod +x main.py
    ```
 
 3. **Install Python requirements**
@@ -84,7 +84,7 @@ A comprehensive Python-based robot control interface with RViz integration for t
 
 1. **Launch the UI**
    ```bash
-   ./launch_ui.sh
+   .python main.py
    ```
 
 2. **Launch Robot Control**
@@ -185,14 +185,6 @@ UI/
 └── README.md                 # This file
 ```
 
-## Default Waypoints
-
-The system comes with these predefined waypoints:
-- **home**: (0.0, 0.0) - Origin/starting position
-- **kitchen**: (2.0, 1.0) - Kitchen area
-- **living_room**: (-1.0, 2.0) - Living room
-- **fruits**: (3.0, -1.0) - Fruits/grocery area
-- **charging_station**: (-2.0, -1.0) - Robot charging station
 
 ## Advanced Features
 
@@ -223,4 +215,4 @@ For issues or questions:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the Apache license
