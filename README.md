@@ -6,68 +6,78 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20ARM64-green)](https://www.linux.org/)
 ---
 
-##PDE4439 - Dissertation: CartBot
+#PDE4439 - Dissertation: CartBot
 
-This repository contains the CartBot project developed as part of the PDE4439 dissertation. It demonstrates a ROS 2-based autonomous cart integrating SLAM, navigation, and UI components.
+## CartBot — PDE4439 Dissertation
 
-Branches
+This repository contains the CartBot ROS project developed for the PDE4439 dissertation. It demonstrates a ROS 2-based autonomous cart integrating SLAM, navigation (Nav2), and UI components (Python and Web).
 
-There are four branches in this repository. You are currently on the master branch. Each branch contains specific parts of the project, and detailed instructions are available within each branch.
+### Table of contents
+- Overview
+- Branches
+- Prerequisites
+- Environment
+- Launching
+    - Bringup
+    - Navigation (SLAM + Nav2)
+    - Python UI
+    - Web UI
+- Notes
 
-Running the Robot
-Set Environment Variable
+### Overview
+Concise, runnable examples and branch-specific setup are included. Choose the launch method that best fits your environment: use the Python UI for direct operator control or the Web UI for remote/device-independent access.
 
-Before launching, set the robot base type:
+### Branches
+There are four branches in this repository. You are currently on the `master` branch. Each branch isolates a part of the project (hardware bringup, navigation stacks, UI tools, experiments). See each branch’s README for branch-specific setup and troubleshooting.
 
+### Prerequisites
+- ROS 2 (distribution used for the project)
+- Nav2 and SLAM packages
+- Python 3 and required UI dependencies
+- Hardware drivers as required by your robot base
+
+Install dependencies per-branch as documented in each branch README.
+
+### Environment
+Set the robot base type before launching:
+```bash
 export cartBot_BASE=2wd
+```
+Adjust the value to match your platform (e.g., `2wd`, `4wd`, etc.).
 
-Launch via ROS 2
-1. Bringup
+### Launching
 
-To launch the main robot files:
-
+Bringup
+```bash
 ros2 launch cartBot_bringup bringup.launch.py madgwick:=true orientation_stddev:=0.01
+```
+Initializes hardware and sensors required for the robot.
 
-
-This will initialize the hardware and sensors.
-
-2. Navigation
-
-You can start navigation using either the UI or the default launch file:
-
+Navigation (SLAM + Nav2)
+```bash
 ros2 launch cartBot_navigation slam.launch.py rviz:=true sim:=false
+```
+Launches SLAM and Nav2. Set `rviz:=true` to open RViz and `sim:=true` if running in simulation.
 
+Python UI
+1. Change to the folder with the Python UI scripts.
+2. Launch:
+```bash
+bash python main.py
+```
+This opens RViz with navigation tools for selecting parameters and map data.
 
-This launch file includes both SLAM and Nav2.
+Web UI
+1. Change to the folder with the web UI scripts.
+2. Start the service:
+```bash
+bash python service_manager.py
+```
+Provides a device-independent way to start the robot and access the UI from other devices on the network.
 
-Launch via Python UI
+### Notes
+- Detailed, step-by-step instructions per branch are available in those branches’ READMEs.
+- Choose Python UI for local control and debugging; use Web UI for remote access or multi-device testing.
+- Logs, parameter files, and maps are stored per-branch; consult branch documentation for their locations.
 
-Navigate to the folder containing the Python UI scripts.
-
-Run:
-
-bash
-python main.py
-
-
-This will launch RViz with navigation tools and allow you to select navigation parameters and map data.
-
-Launch via Web UI
-
-Navigate to the folder containing the web UI scripts.
-
-Run:
-
-bash
-python service_manager.py
-
-
-This is a quick way to start the robot and access the UI from any device.
-
-Notes
-
-Comprehensive instructions are available per branch, detailing setup and execution.
-
-Choose the method that best suits your environment: Python UI for direct control, or Web UI for device-independent access.
-
-*This project represents the culmination of advanced robotics research and development, demonstrating practical applications of autonomous systems in retail environments.*
+License and attribution information is included at the repository root.
