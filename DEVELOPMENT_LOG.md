@@ -27,7 +27,7 @@ function emergencyStop() {
 ---
 
 ### **Phase 2: Enhanced Emergency Stop** 
-**User Request**: Emergency stop "should also stop any cmd_vel to zero"
+
 
 #### Enhanced in `map_viewer.html`:
 - True emergency stop with velocity override
@@ -95,7 +95,6 @@ function executeWaypointSequence() {
 ---
 
 ### **Phase 4: ROS Launch Controls**
-**User Request**: "help me to launch navigation, slam" with buttons for launch
 
 #### Created `launch_service_node.py`:
 - ROS service node for executing launch commands
@@ -140,7 +139,7 @@ var launchSlamService = new ROSLIB.Service({
 ---
 
 ### **Phase 5: Real-time Status Monitoring**
-**User Request**: "how do i see the status if it really started or just a label"
+
 
 #### Enhanced `map_viewer.html`:
 - Real-time ROS node detection via ROS API
@@ -175,7 +174,7 @@ setTimeout(() => {
 ---
 
 ### **Phase 6: Consumer-Level Service Management**
-**User Request**: "what if i add a button to start this service on the UI itself"
+
 
 #### Created `service_manager.py`:
 - Enhanced HTTP server with service management
@@ -223,7 +222,7 @@ async function checkSystemServices() {
 ---
 
 ### **Phase 7: Smart Connection Management**
-**User Request**: "there is no option to disconnect the server if user want to"
+
 
 #### Enhanced `map_viewer.html`:
 - Toggle connect/disconnect button with visual states
@@ -264,7 +263,7 @@ if (!manuallyDisconnected) {
 ---
 
 ### **Phase 8: Developer Monitoring Tools**
-**User Request**: "as a developer, i want to see the status when ever i click slam or navigation"
+
 
 #### Created `ros_status_monitor.py`:
 - Real-time ROS system monitoring
@@ -383,7 +382,8 @@ Developer CLI Tools (monitoring)
 - Solution: Manual disconnect preference tracking
 - Impact: Respectful user experience with clear connection control
 
----
+-------
+
 
 ## 📋 Current System Capabilities
 
@@ -395,6 +395,6 @@ Developer CLI Tools (monitoring)
 
 
 #### Testing result
--- ** functionality of joy stick is as expected
+-- **functionality of joy stick is as expected
 -- ** Navigation tools such as adding new points are successfully tested
 -- ** map and robot postion observed inconsistancy , required update 
