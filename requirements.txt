@@ -1,0 +1,9 @@
+PySide6>=6.4.0
+rclpy>=3.3.0
+geometry_msgs
+nav_msgs
+sensor_msgs
+nav2_simple_commander
+tf2_ros
+tf2_geometry_msgs
+ament_index_python
