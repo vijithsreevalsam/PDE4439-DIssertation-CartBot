@@ -58,5 +58,5 @@ The system bridges the gap between complex robotics systems and user-friendly in
 ---
 
 
-*Project: cartBot - Robot Control Web Interface*
+*Project: cartBot - Robot Control Web Interface
 *Auther: Vijith viswan
