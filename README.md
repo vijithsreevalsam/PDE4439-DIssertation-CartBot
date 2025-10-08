@@ -38,10 +38,9 @@ This project provides a **consumer-level web interface** for controlling ROS2-ba
 ```
 /home/viju/websocket_ws/
 ├── robot_control.html           # Main web interface
-├── service_manager.py        # HTTP server with service management
-├── launch_service_node.py    # ROS service node for launch commands
+├── service_manager.py           # HTTP server with service management
+├── launch_service_node.py       # ROS service node for launch commands
 ```
-
 
 
 ## 📝 Summary
@@ -49,14 +48,15 @@ This project provides a **consumer-level web interface** for controlling ROS2-ba
 This robot control interface represents a complete evolution from basic waypoint functionality to a production-ready, consumer-level robot control system. It provides:
 
 - **Complete Consumer Experience**: No CLI knowledge required
-- **Safety-First Design**:  emergency stop with velocity override
-- **Map view**: Comprehensive monitoring of robot postion relative to map
-
+- **Safety-First Design**: emergency stop with velocity override
+- **Map view**: Comprehensive monitoring of robot position relative to map
 
 The system bridges the gap between complex robotics systems and user-friendly interfaces, making advanced robot control accessible to end users while providing powerful tools for developers.
 
 ---
 
+The rewritten markdown content that would fit at $SELECTION_PLACEHOLDER$ wrapped with -+-+-+-+-+ is:
 
-*Project: cartBot - Robot Control Web Interface
-*Auther: Vijith viswan
+*Project: cartBot - Robot Control Web Interface*
+
+*Author: _Vijith Viswan_*
